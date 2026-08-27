@@ -1310,7 +1310,7 @@
 
         const { code } = await discordSdk.commands.authorize({
           client_id: CLIENT_ID, response_type: 'code',
-          state: '', prompt: 'none', scope: ['identify'],
+          state: '', prompt: 'consent', scope: ['identify'],
         });
 
         const { access_token } = await api('/api/token', { code });
