@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0e13" />
+    <title>Transmitir · NEXT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Agdasima:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/share.css?v=36" />
+  </head>
+  <body>
+    <div class="bloom" aria-hidden="true"></div>
+
+    <div class="page">
+      <!-- ─────────────────────────────── Hero ─────────────────────────────── -->
+      <header class="hero">
+        <div class="hero__copy">
+          <div class="eyebrow">
+            <span class="eyebrow__bar" aria-hidden="true"></span>
+            <span class="eyebrow__title">Next CUP</span>
+            <span class="eyebrow__sub">ponto a ponto</span>
+          </div>
+
+          <h1 class="hero__title">Transmita sua tela,<br />ao vivo, para o Discord.</h1>
+
+          <p class="hero__lead">
+            Escolha o que deseja transmitir e compartilhe sua tela diretamente com seus amigos pelo
+            Discord. Rápido, simples e sem complicação.
+          </p>
+
+          <ul class="feats">
+            <li class="feat">
+              <span class="feat__tile" aria-hidden="true">
+                <img src="/assets/share/feat-start.svg" alt="" width="15" height="15" />
+              </span>
+              <span class="feat__label">Comece a transmitir em poucos segundos</span>
+            </li>
+            <li class="feat">
+              <span class="feat__tile" aria-hidden="true">
+                <img src="/assets/share/feat-route.svg" alt="" width="15" height="15" />
+              </span>
+              <span class="feat__label">
+                O vídeo vai do seu navegador para o Discord, sem passar pelo servidor.
+              </span>
+            </li>
+            <li class="feat">
+              <span class="feat__tile" aria-hidden="true">
+                <img src="/assets/share/feat-group.svg" alt="" width="15" height="15" />
+              </span>
+              <span class="feat__label">Convide seus amigos e acompanhe a transmissão juntos.</span>
+            </li>
+          </ul>
+        </div>
+
+        <img
+          class="hero__wordmark"
+          src="/assets/share/next-wordmark.png"
+          alt="NEXT"
+          width="182"
+          height="44"
+        />
+      </header>
+
+      <p id="pageStatus" class="status" role="status"></p>
+
+      <!-- ─────────────────── Transmissões: tela + câmera ──────────────────── -->
+      <div class="streams">
+
+      <!-- ────────────────────────────── Palco ─────────────────────────────── -->
+      <section class="camera" id="bloco-tela" aria-label="Transmissão de tela">
+        <h2 class="camera__title">Tela</h2>
+
+        <div id="tela-setup">
+          <div class="camera__frame">
+            <div class="camera__idle" id="tela-vazio">Sem prévia</div>
+            <video id="tela-previa" class="camera__video" muted playsinline hidden></video>
+          </div>
+          <div class="camera__actions">
+            <button id="tela-start" type="button" class="btn btn--primary">Transmitir tela</button>
+            <button id="tela-escolher" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+          </div>
+        </div>
+
+        <div id="tela-live" hidden>
+          <div class="camera__badge"><span class="camera__dot"></span> No ar</div>
+          <div class="camera__frame">
+            <video id="tela-preview" class="camera__video" muted playsinline></video>
+          </div>
+          <div class="camera__stats">
+            <div><strong id="tela-viewers">0</strong><span>assistindo</span></div>
+            <div><strong id="tela-fps">—</strong><span>quadros</span></div>
+            <div><strong id="tela-bitrate">—</strong><span>enviando</span></div>
+            <div><strong id="tela-elapsed">0:00</strong><span>no ar</span></div>
+          </div>
+          <div class="camera__actions">
+            <button id="tela-stop" type="button" class="btn btn--danger">Parar</button>
+            <button
+              id="somAba"
+              type="button"
+              class="btn btn--ghost btn--caret"
+              title="Trocar a fonte do som"
+              aria-label="Trocar a fonte do som"
+            >
+              <img src="/assets/share/icon-mic.svg" alt="" width="15" height="15" />
+            </button>
+          </div>
+        </div>
+
+        <p id="tela-status" class="status" role="status"></p>
+        <p class="tip" id="tela-nota">
+          Para trocar de abas sem congelar, escolha <strong>Janela</strong> e selecione a janela do
+          navegador. Escolha <strong>Tela inteira</strong> para transmitir o monitor.
+        </p>
+      </section>
+
+      <!-- ───────────────────── Câmera (mobile / fallback) ─────────────────── -->
+      <section class="camera" id="bloco-camera" aria-label="Transmissão de câmera">
+        <h2 class="camera__title">Câmera</h2>
+
+        <div id="camera-setup">
+          <div class="camera__frame">
+            <div class="camera__idle" id="camera-vazio">Sem prévia</div>
+            <video id="camera-previa" class="camera__video" muted playsinline hidden></video>
+          </div>
+          <div class="camera__actions">
+            <button id="camera-start" type="button" class="btn btn--primary">Ligar a câmera</button>
+            <button
+              id="camera-escolher"
+              type="button"
+              class="btn btn--ghost btn--caret"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-label="Escolher câmera"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+            </button>
+            <ul id="camera-menu" class="menu" role="menu" hidden></ul>
+          </div>
+        </div>
+
+        <div id="camera-live" hidden>
+          <div class="camera__badge"><span class="camera__dot"></span> No ar</div>
+          <div class="camera__frame">
+            <video id="camera-preview" class="camera__video" muted playsinline></video>
+          </div>
+          <div class="camera__stats">
+            <div><strong id="camera-viewers">0</strong><span>assistindo</span></div>
+            <div><strong id="camera-fps">—</strong><span>quadros</span></div>
+            <div><strong id="camera-bitrate">—</strong><span>enviando</span></div>
+            <div><strong id="camera-elapsed">0:00</strong><span>no ar</span></div>
+          </div>
+          <button id="camera-stop" type="button" class="btn btn--danger">Desligar a câmera</button>
+        </div>
+
+        <p id="camera-status" class="status" role="status"></p>
+        <p class="tip">
+          Para trocar de abas sem congelar, escolha <strong>Janela</strong> e selecione a janela do
+          navegador. Escolha <strong>Tela inteira</strong> para transmitir o monitor.
+        </p>
+      </section>
+      </div>
+
+      <!-- ─────────────────────────────── Loja ─────────────────────────────── -->
+      <div class="shop-row">
+        <a class="shop" href="https://nextcup.centralcart.ai/" target="_blank" rel="noopener">
+          <img class="shop__icon" src="/assets/share/shop.svg" alt="" width="17" height="17" />
+          <span class="shop__label">Loja next</span>
+          <img class="shop__out" src="/assets/share/external.svg" alt="" width="17" height="17" />
+        </a>
+      </div>
+
+      <!-- ────────────────────────────── Rodapé ────────────────────────────── -->
+      <footer class="foot">
+        <p class="foot__credit">Feito com 💖 por <span>Stark &amp; Ixce</span></p>
+        <p class="foot__warn">
+          Mantenha esta aba aberta enquanto transmite. Você pode voltar para o Discord — a
+          transmissão continua.
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="/share.js?v=32"></script>
+  </body>
+</html>

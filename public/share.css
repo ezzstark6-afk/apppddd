@@ -1,0 +1,1237 @@
+/* ============================================================================
+   Transmitir — página de captura externa.
+   Medidas tiradas do Figma "next Grou[ - Compartilhe sua tela" (node 584:31).
+
+   Uma decisão consciente sobre o mock: no Figma vários elementos do HUD nascem
+   fora do trilho de 40px (a marca d'água em 45, a legenda do dock em 29, o aviso
+   do rodapé em 8). Aqui tudo assenta no mesmo trilho — a intenção do desenho é
+   uma coluna, e alinhar é o que a faz parecer uma.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:root {
+  /* superfície */
+  --bg: #0b0e13;
+  --ink: #e9edf2;
+  --muted: #a5aebd;
+  --dim: #8f7979;
+  --faint: #6f5a5a;
+
+  /* marca */
+  --red: #ff0000;
+  --red-deep: #5e1818;
+  --red-soft: #ff8383;
+
+  /* o HUD do mock é branco a 60% sobre o fundo */
+  --hud: rgba(255, 255, 255, 0.62);
+  --hud-soft: rgba(255, 255, 255, 0.46);
+  --hud-faint: rgba(255, 255, 255, 0.32);
+
+  --tile: rgba(34, 20, 20, 0.5);
+  --hair: rgba(255, 255, 255, 0.05);
+
+  /* estados */
+  --warn: #f0b232;
+  --bad: #ff8a8f;
+
+  /* grade */
+  --shell: 1320px;
+  --rail: 40px;
+
+  --ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --hud-font: 'Agdasima', 'Inter', sans-serif;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(198, 40, 40, 0.65) rgba(255, 255, 255, 0.04);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7b1a1a, #c62828 55%, #ff4f4f);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #8f1f1f, #de3434 55%, #ff6666);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+::selection {
+  background: rgba(255, 0, 0, 0.28);
+  color: #fff;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* O brilho vermelho que o Figma descreve no fundo do quadro. No render do mock
+   ele sai achatado por causa das paradas do gradiente; aqui vale a intenção. */
+.bloom {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      66% 42% at 50% 62%,
+      rgba(255, 0, 0, 0.14) 0%,
+      rgba(255, 0, 0, 0.05) 45%,
+      rgba(255, 0, 0, 0) 78%
+    ),
+    radial-gradient(130% 46% at 50% 110%, rgba(94, 24, 24, 0.26), rgba(11, 14, 19, 0) 66%);
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--shell);
+  min-height: 100vh;
+  margin-inline: auto;
+  padding: 28px var(--rail) 26px;
+}
+
+/* ──────────────────────────────── Hero ──────────────────────────────────── */
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 56px;
+}
+
+.hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.eyebrow__bar {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--red);
+  box-shadow: 0 0 12px rgba(255, 0, 0, 0.65);
+}
+
+.eyebrow__title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 19.5px;
+  letter-spacing: 2.47px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.eyebrow__sub {
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 0, 0, 0.26);
+  font-size: 12.5px;
+  line-height: 18.75px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.hero__title {
+  font-size: clamp(30px, 3.85vw, 42px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  background: linear-gradient(143.7deg, var(--red-deep) 14.68%, var(--red) 44.95%, var(--red-soft) 88.69%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 18px rgba(4, 8, 13, 0.26));
+}
+
+.hero__lead {
+  max-width: 460px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.feats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 15px;
+  list-style: none;
+}
+
+.feat {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.feat__tile {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--hair);
+  border-radius: 7px;
+  background: var(--tile);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+
+.feat__tile img {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
+.feat:hover .feat__tile {
+  border-color: rgba(255, 0, 0, 0.28);
+  box-shadow: 0 0 18px rgba(255, 0, 0, 0.14);
+}
+
+.feat__label {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.hero__wordmark {
+  flex: 0 0 auto;
+  width: 182px;
+  height: 44px;
+  object-fit: contain;
+}
+
+/* ─────────────────────────────── Estados ────────────────────────────────── */
+/* O share.js reescreve className inteiro ("status", "status error", …), então o
+   estilo tem de pendurar no id — qualquer classe de layout seria apagada. */
+
+#pageStatus {
+  display: flex;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 10px 13px;
+  border: 1px solid rgba(240, 178, 50, 0.24);
+  border-radius: 9px;
+  background: rgba(240, 178, 50, 0.07);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--warn);
+}
+
+#pageStatus::before {
+  content: '';
+  flex: 0 0 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+#pageStatus.error {
+  border-color: rgba(255, 77, 85, 0.3);
+  background: rgba(255, 77, 85, 0.08);
+  color: var(--bad);
+}
+
+#pageStatus:empty {
+  display: none;
+}
+
+/* ──────────────────────────────── Palco ─────────────────────────────────── */
+
+/* Tela + câmera lado a lado no desktop; empilha no mobile. */
+.streams {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+  margin-top: 7px;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 416px é a altura do palco no mock (da marca d'água ao pé da legenda do dock).
+   Vira teto, não meta: o resto da página ocupa ~600px fixos, então o piso do
+   palco é o que sobra da janela. Assim ele cede primeiro e a página não passa a
+   rolar por causa de vinte pixels — e onde há folga o `flex` devolve a altura. */
+.stage__surface {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: clamp(230px, calc(100vh - 620px), 416px);
+  isolation: isolate;
+}
+
+.stage__layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: background 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+
+.stage__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.stage__idle {
+  display: none;
+}
+
+.stage__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+  background:
+    linear-gradient(180deg, rgba(5, 7, 10, 0.82), rgba(5, 7, 10, 0.34) 14%, rgba(5, 7, 10, 0) 30%),
+    linear-gradient(0deg, rgba(5, 7, 10, 0.86), rgba(5, 7, 10, 0.3) 16%, rgba(5, 7, 10, 0) 32%);
+}
+
+/* Há vídeo no palco: ele vira superfície de player e o HUD ganha véu. */
+.stage:has(#tela-previa:not([hidden])) .stage__layer,
+.stage:has(#tela-live:not([hidden])) .stage__layer {
+  overflow: hidden;
+  background: #05070a;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.stage:has(#tela-previa:not([hidden])) .stage__scrim,
+.stage:has(#tela-live:not([hidden])) .stage__scrim {
+  opacity: 1;
+}
+
+.stage:has(#tela-previa:not([hidden])) .hud__watermark,
+.stage:has(#tela-live:not([hidden])) .hud__watermark {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.stage:has(#tela-live:not([hidden])) .tip {
+  display: none;
+}
+
+/* ── leitura do HUD ── */
+
+.hud {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.hud__watermark {
+  font-size: clamp(21px, 2.4vw, 26px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--hud);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+}
+
+.hud__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px clamp(26px, 7.4vw, 84px);
+  font-family: var(--hud-font);
+}
+
+.hud__fps,
+.hud__live,
+.hud__stat {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.45px;
+  line-height: 14px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hud__fps {
+  color: var(--hud-soft);
+}
+
+.hud__source {
+  font-size: 18.6px;
+  font-weight: 700;
+  line-height: 29px;
+  letter-spacing: 0.93px;
+  text-transform: uppercase;
+  color: var(--hud);
+}
+
+/* inline-block, não flex: assim a linha de base cai sozinha na do resto. */
+.hud__live {
+  display: inline-block;
+  color: var(--hud);
+  opacity: 0.42;
+  transition: opacity 0.3s var(--ease);
+}
+
+.hud__live-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  vertical-align: -2px;
+}
+
+.hud__live-icon img {
+  display: block;
+  width: 10px;
+  height: 7.37px;
+}
+
+.hud__live strong {
+  margin-left: 7px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud__stat {
+  display: none;
+  color: var(--hud-soft);
+}
+
+.hud__stat strong {
+  font-weight: 700;
+  color: var(--hud);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud__stat span {
+  margin-left: 5px;
+}
+
+/* "Mb/s" é megabit; em caixa alta viraria "MB/S" e passaria a dizer megabyte. */
+#tela-bitrate {
+  text-transform: none;
+}
+
+.stage:has(#tela-live:not([hidden])) .hud__live {
+  opacity: 1;
+}
+
+.stage:has(#tela-live:not([hidden])) .hud__live-icon {
+  animation: breathe 1.9s ease-in-out infinite;
+}
+
+.stage:has(#tela-live:not([hidden])) .hud__stat {
+  display: inline-block;
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ── parar ── */
+
+.stage__stop {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(10, 12, 16, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 11.5px/1 var(--ui);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.stage__stop-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--red);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.85);
+}
+
+.stage__stop:hover {
+  border-color: rgba(255, 0, 0, 0.55);
+  background: rgba(255, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+.stage__stop:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+}
+
+/* ── dock ── */
+
+.dock {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 18px clamp(28px, 12vw, 137px);
+  margin-top: auto;
+  padding-top: 24px;
+  /* espaço para a legenda, que vive fora do fluxo logo abaixo dos botões */
+  padding-bottom: 37px;
+}
+
+.dock__controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+/* A legenda sai do fluxo: no desenho ela passa por baixo do segundo botão. */
+.dock__slot {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 22px;
+}
+
+.dock__btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.dock__btn img {
+  display: block;
+}
+
+.dock__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(255, 255, 255, 0.2), 0 0 0 3px rgba(255, 0, 0, 0.16);
+}
+
+.dock__btn:active {
+  transform: translateY(0) scale(0.94);
+}
+
+.dock__btn:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+}
+
+.dock__btn:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* O som só existe depois que a transmissão está no ar. */
+.dock__btn--audio {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.dock__btn--audio img {
+  opacity: 0.62;
+}
+
+.stage:has(#tela-live:not([hidden])) .dock__btn--audio {
+  background: #fff;
+}
+
+.stage:has(#tela-live:not([hidden])) .dock__btn--audio img {
+  opacity: 1;
+}
+
+/* A legenda começa no trilho, não centrada no botão: no mock ela nasce 11px à
+   esquerda da coluna, e é justamente isso que faz o rodapé parecer torto. A
+   seta é que fica centrada sob o botão, porque é ela que aponta. */
+.dock__hint {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  opacity: 0.72;
+  white-space: nowrap;
+  transition: opacity 0.28s var(--ease);
+}
+
+.dock__hint-arrow {
+  display: block;
+  width: 11.31px;
+  height: 9.79px;
+  margin-left: 4.35px;
+  opacity: 0;
+  transform: rotate(180deg) translateY(4px);
+  transition: opacity 0.28s var(--ease), transform 0.28s var(--ease);
+}
+
+.dock__hint-label {
+  font-family: var(--hud-font);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20.2px;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  color: var(--hud);
+}
+
+.dock__slot:hover .dock__hint,
+.dock__slot:focus-within .dock__hint {
+  opacity: 1;
+}
+
+.dock__slot:hover .dock__hint-arrow,
+.dock__slot:focus-within .dock__hint-arrow {
+  opacity: 1;
+  transform: rotate(180deg) translateY(0);
+}
+
+.stage:has(#tela-live:not([hidden])) .dock__hint {
+  opacity: 0;
+}
+
+/* ── volume ── */
+
+.dock__volume {
+  display: flex;
+  align-items: center;
+  gap: 4.5px;
+  padding-bottom: 4px;
+}
+
+.dock__speaker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  opacity: 0.62;
+}
+
+.dock__speaker img {
+  display: block;
+  width: 11px;
+  height: 11.06px;
+}
+
+/* Mesma geometria do volume-bar.svg (69×6, trilho 3px rx 1.5, bolinha r=3),
+   só que dirigível: --level anda com o áudio que está indo para o Discord. */
+.meter {
+  position: relative;
+  display: block;
+  width: 69px;
+  height: 6px;
+}
+
+.meter__track {
+  position: absolute;
+  top: 1.5px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 0, 0, 0.24);
+}
+
+.meter__fill {
+  position: absolute;
+  top: 1.5px;
+  left: 0;
+  width: calc(var(--level, 1) * 100%);
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(255, 0, 0, 0.22);
+  transition: width 0.09s linear;
+}
+
+.meter__knob {
+  position: absolute;
+  top: 0;
+  left: calc(var(--level, 1) * (69px - 6px));
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 7px rgba(255, 0, 0, 0.3);
+  transition: left 0.09s linear;
+}
+
+/* ── rodapé do palco ── */
+
+/* Altura reservada: o status nasce vazio e aparece a qualquer momento — sem a
+   reserva, cada mensagem empurraria a loja e o rodapé para baixo. */
+.stage__foot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 34px;
+  padding-top: 12px;
+}
+
+#tela-status,
+#camera-status {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+#tela-status:empty,
+#camera-status:empty {
+  display: none;
+}
+
+#tela-status.error,
+#camera-status.error {
+  color: var(--bad);
+}
+
+#tela-status.ok,
+#camera-status.ok {
+  color: #ff6b6b;
+}
+
+#tela-status.aviso,
+#camera-status.aviso {
+  color: var(--warn);
+}
+
+/* O conselho sobre Janela × Tela inteira só serve no segundo em que o seletor
+   vai abrir. Fora do fluxo e fora de vista até lá — no desenho ele não existe,
+   e uma dica permanente aqui rouba o silêncio do palco. */
+.tip {
+  max-width: 640px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--hud-faint);
+}
+
+.tip strong {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── a atividade está chamando esta fonte ── */
+
+#bloco-tela.chamando #tela-start {
+  animation: call 1.6s var(--ease) infinite;
+}
+
+#bloco-tela.chamando .dock__hint {
+  opacity: 1;
+}
+
+#bloco-tela.chamando .dock__hint-arrow {
+  opacity: 1;
+  animation: nudge 1.3s ease-in-out infinite;
+}
+
+@keyframes call {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.6), 0 6px 18px rgba(255, 0, 0, 0.28);
+  }
+  60% {
+    box-shadow: 0 0 0 9px rgba(255, 0, 0, 0), 0 6px 18px rgba(255, 0, 0, 0.28);
+  }
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: rotate(180deg) translateY(0);
+  }
+  50% {
+    transform: rotate(180deg) translateY(-3px);
+  }
+}
+
+/* ──────────────────────────────── Loja ──────────────────────────────────── */
+
+.shop-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.shop {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 152px;
+  height: 37px;
+  padding: 0 10px 0 16px;
+  border-radius: 2px;
+  background: var(--red);
+  color: #e7f1f3;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14px;
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgba(255, 0, 0, 0.22);
+  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), filter 0.18s var(--ease);
+}
+
+.shop__icon,
+.shop__out {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+.shop__out {
+  margin-left: auto;
+  transition: transform 0.18s var(--ease);
+}
+
+.shop:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 12px 28px rgba(255, 0, 0, 0.32);
+}
+
+.shop:hover .shop__out {
+  transform: translate(2px, -2px);
+}
+
+.shop:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+/* ─────────────────────────────── Rodapé ─────────────────────────────────── */
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.foot__credit {
+  font-size: 12.5px;
+  line-height: 18.75px;
+  color: var(--faint);
+  text-align: center;
+}
+
+.foot__credit span {
+  color: var(--red);
+}
+
+.foot__warn {
+  align-self: stretch;
+  font-family: var(--hud-font);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ──────────────────── Câmera (mobile / fallback) ────────────────────────── */
+
+.camera {
+  display: block;
+  margin-top: 0;
+  padding: 18px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+body.is-mobile .camera {
+  display: block;
+}
+
+body.is-mobile #bloco-tela {
+  display: none;
+}
+
+.camera__title {
+  margin-bottom: 14px;
+  font-family: var(--hud-font);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--hud);
+}
+
+.camera__frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #05070a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.camera__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.camera__idle {
+  font-family: var(--hud-font);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--hud-faint);
+}
+
+.camera__actions {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+
+/* No painel da tela, Parar e som ficam lado a lado no estado ao vivo. */
+.camera__actions .btn--danger {
+  width: auto;
+  flex: 1;
+}
+
+.btn {
+  border: 0;
+  border-radius: 9px;
+  font-family: var(--ui);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), filter 0.16s var(--ease), background 0.16s var(--ease);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+}
+
+.btn:active {
+  transform: scale(0.985);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn--primary {
+  flex: 1;
+  padding: 13px 16px;
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(255, 0, 0, 0.22);
+}
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn--caret {
+  display: grid;
+  flex: 0 0 48px;
+  place-items: center;
+  padding: 0;
+}
+
+.btn--caret svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn--danger {
+  width: 100%;
+  padding: 13px 16px;
+  background: rgba(255, 0, 0, 0.14);
+  color: var(--bad);
+  box-shadow: inset 0 0 0 1px rgba(255, 0, 0, 0.3);
+}
+
+.btn--danger:hover {
+  background: rgba(255, 0, 0, 0.2);
+}
+
+.camera__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 0, 0, 0.14);
+  color: #ff5a5a;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.camera__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.camera__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+  text-align: center;
+}
+
+.camera__stats div {
+  padding: 9px 4px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.camera__stats strong {
+  display: block;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.camera__stats span {
+  font-size: 11.5px;
+  color: var(--hud-faint);
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  min-width: 230px;
+  padding: 6px;
+  border: 1px solid var(--hair);
+  border-radius: 11px;
+  background: #101114;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  list-style: none;
+}
+
+.menu button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #f2f3f5;
+  font-family: var(--ui);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.menu button[aria-checked='true'] {
+  color: var(--red-soft);
+}
+
+/* ───────────────────────────── Responsivo ───────────────────────────────── */
+
+@media (max-width: 980px) {
+  :root {
+    --rail: 28px;
+  }
+
+  .hero {
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .hero__wordmark {
+    order: -1;
+    width: 148px;
+    height: 36px;
+  }
+
+  .streams {
+    grid-template-columns: 1fr;
+  }
+
+  .camera {
+    margin-top: 18px;
+  }
+
+  .stage__surface {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 620px) {
+  .page {
+    padding-top: 22px;
+  }
+
+  .hero__lead,
+  .feat__label {
+    font-size: 14px;
+  }
+
+  .stage__surface {
+    min-height: 260px;
+  }
+
+  .dock {
+    gap: 16px 28px;
+  }
+
+  .shop-row {
+    justify-content: stretch;
+  }
+
+  .shop {
+    flex: 1;
+    justify-content: flex-start;
+  }
+
+  .camera__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 460px) {
+  :root {
+    --rail: 18px;
+  }
+
+  .eyebrow__title {
+    letter-spacing: 1.8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Transmissões</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #1a1b1e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+
+    /* ========== MOBILE: esconde tela, só câmera ========== */
+    body.is-mobile #btnTela { display: none !important; }
+    body.is-mobile .dock-group { gap: 4px; padding: 4px 6px; }
+    body.is-mobile .dock-btn { width: 32px; height: 32px; }
+    body.is-mobile .dock-btn svg { width: 14px; height: 14px; }
+    body.is-mobile .sidebar { width: 160px; }
+    body.is-mobile .participant-tile { min-height: 90px; }
+    body.is-mobile .participant-avatar,
+    body.is-mobile .participant-avatar-ph { width: 50px; height: 50px; font-size: 1.1rem; }
+    body.is-mobile .topbar { padding: 4px 6px; gap: 4px; }
+    body.is-mobile .logo { width: 22px; height: 22px; }
+    body.is-mobile .pill { font-size: 0.68rem; padding: 3px 8px; }
+    body.is-mobile .user-chip { font-size: 0.68rem; padding: 2px 6px 2px 2px; }
+    body.is-mobile .user-chip img { width: 18px; height: 18px; }
+    body.is-mobile .icon-btn { padding: 4px; }
+    body.is-mobile .icon-btn svg { width: 14px; height: 14px; }
+    body.is-mobile .live-dock { bottom: 10px; }
+    body.is-mobile .stream-bottom-bar { padding: 4px 6px; gap: 6px; }
+    body.is-mobile .stream-name-pill { font-size: 0.65rem; padding: 2px 5px; }
+    body.is-mobile .viewer-count-bar { font-size: 0.65rem; }
+    body.is-mobile .close-main { width: 24px; height: 24px; font-size: 12px; }
+    body.is-mobile .mobile-camera-hint { display: flex; }
+
+    /* ========== TOPBAR ========== */
+    .topbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; flex-shrink: 0;
+      background: #111214; border-bottom: 1px solid #1e1f22; z-index: 20;
+    }
+    .logo { width: 26px; height: 26px; border-radius: 5px; object-fit: contain; }
+    .pill {
+      background: #2b2d31; border-radius: 999px;
+      padding: 4px 12px; font-size: 0.78rem; color: #b5bac1;
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .user-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: #2b2d31; border-radius: 999px;
+      padding: 3px 10px 3px 3px; font-size: 0.78rem;
+    }
+    .user-chip img { width: 22px; height: 22px; border-radius: 50%; }
+    .icon-btn {
+      background: none; border: 1px solid #3a3c41; border-radius: 7px;
+      padding: 5px; cursor: pointer; color: #b5bac1;
+      display: flex; align-items: center; justify-content: center; transition: all .15s;
+    }
+    .icon-btn:hover { border-color: #c62828; color: #fff; }
+    .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-btn.muted { color: #ff1744; border-color: #ff1744; }
+
+    /* ========== STAGE ========== */
+    .stage { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+
+    /* ========== ÁREA CENTRAL ========== */
+    .main-area {
+      flex: 1; min-width: 0; position: relative;
+      background: #111214;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ---- Estado idle: grid de avatares ---- */
+    .idle-view {
+      width: 100%; height: 100%;
+      position: relative;
+    }
+    .participants-grid {
+      width: 100%; height: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-auto-rows: 1fr;
+      gap: 4px; padding: 4px;
+      align-content: start;
+    }
+    .participant-tile {
+      position: relative; background: #1e1f22;
+      border-radius: 8px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 140px;
+    }
+    .participant-avatar {
+      width: 80px; height: 80px; border-radius: 50%;
+      object-fit: cover; border: 2px solid #2b2d31;
+    }
+    .participant-avatar-ph {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: #36393f; border: 2px solid #2b2d31;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; font-weight: 700; color: #b5bac1;
+    }
+    .participant-name {
+      position: absolute; bottom: 8px; left: 8px;
+      background: rgba(0,0,0,.7); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.76rem; font-weight: 500;
+      max-width: calc(100% - 16px);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Spinner */
+    .connect-msg {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 10px;
+      color: #b5bac1; font-size: 0.9rem;
+    }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid #3a3c41; border-top-color: #c62828;
+      border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Dock flutuante (hover na área) ---- */
+    /*
+     * Dock base — dois grupos de botões separados por um gap,
+     * exatamente como na imagem:
+     *   [tela] [câm] [cfg]    [share] [fullscreen]
+     * Cada grupo tem fundo próprio arredondado.
+     * O dock inteiro fica invisível até hover.
+     */
+    .live-dock {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; align-items: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .18s;
+      z-index: 10;
+    }
+    .main-area:hover .live-dock { opacity: 1; pointer-events: auto; }
+    /* Grupo de botões */
+    .dock-group {
+      display: flex; gap: 2px; align-items: center;
+      background: rgba(30,31,34,.92);
+      border-radius: 999px;
+      padding: 5px 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    }
+    .dock-btn {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,.08);
+      border: none; border-radius: 50%;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .dock-btn:hover { background: rgba(255,255,255,.2); }
+    .dock-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .dock-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    /* Botão ativo (tela ou câmera em uso) fica vermelho */
+    .dock-btn.active-stream { background: #ed4245; }
+    .dock-btn.active-stream:hover { background: #c03537; }
+
+    /* Aviso mobile dentro da Activity */
+    .mobile-camera-hint {
+      display: none;
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,.08); border-radius: 8px;
+      padding: 6px 14px; font-size: 0.72rem; color: #b5bac1;
+      z-index: 15; pointer-events: none;
+      align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .mobile-camera-hint svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+    /* ========== TILE PRINCIPAL (stream ativa) ========== */
+    .main-tile {
+      position: absolute; inset: 0;
+      background: #000;
+    }
+    .main-tile canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain; display: block;
+    }
+    /* Label inferior esquerdo dentro do tile */
+    .stream-bottom-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 10px;
+      background: linear-gradient(0deg, rgba(0,0,0,.7) 0%, transparent 100%);
+      pointer-events: none; z-index: 5;
+    }
+    .stream-name-pill {
+      background: rgba(0,0,0,.75); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.74rem; font-weight: 500;
+      display: flex; gap: 5px; align-items: center;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #f44336; animation: pulse 1.5s infinite;
+      box-shadow: 0 0 5px #f44336; flex-shrink: 0;
+    }
+    @keyframes pulse { 50% { opacity: .3; box-shadow: 0 0 2px #f44336; } }
+    .badge {
+      background: #b71c1c; border-radius: 3px;
+      padding: 1px 5px; font-size: 0.62rem;
+      text-transform: uppercase; font-weight: 700;
+    }
+    .viewer-count-bar {
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(0,0,0,.75); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.74rem; color: #b5bac1;
+    }
+    .viewer-count-bar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Label "você" canto superior direito */
+    .you-label {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.72); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.72rem; color: #b5bac1;
+      z-index: 5; pointer-events: none;
+    }
+
+    /* Botão X do tile principal — aparece só no hover */
+    .close-main {
+      position: absolute; top: 10px; right: 10px;
+      width: 28px; height: 28px;
+      background: rgba(0,0,0,.72); border: 1px solid #555; border-radius: 6px;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; z-index: 10;
+      opacity: 0; pointer-events: none;
+      transition: opacity .15s, background .15s;
+    }
+    .main-tile:hover .close-main { opacity: 1; pointer-events: auto; }
+    .close-main:hover { background: #c62828; border-color: #c62828; }
+
+    /* ========== MODO TELA CHEIA (sidebar oculta) ========== */
+    body.fullscreen-mode .sidebar { display: none; }
+    body.fullscreen-mode .topbar  { display: none; }
+
+    /* ========== SIDEBAR ========== */
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      background: #111214; border-left: 1px solid #1e1f22;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-title {
+      padding: 8px 10px 6px;
+      font-size: 0.63rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #6b6f76; border-bottom: 1px solid #1e1f22; flex-shrink: 0;
+    }
+
+    /* Mini-tiles sidebar (outras streams) */
+    .side-streams { display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+    .side-stream-item {
+      position: relative; border-bottom: 1px solid #1a1a1a; background: #111214;
+    }
+    .side-canvas-wrap {
+      position: relative; width: 100%; aspect-ratio: 16/9;
+      background: #0a0a0a; overflow: hidden;
+    }
+    .side-canvas-wrap canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .side-overlay-watch {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .side-watch-pill {
+      background: #5865f2; border-radius: 999px;
+      padding: 5px 11px; font-size: 0.70rem; font-weight: 600; color: #fff;
+      display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    }
+    .side-watch-pill svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .side-overlay-hover {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      opacity: 0; transition: opacity .15s; z-index: 5;
+    }
+    .side-stream-item:hover .side-overlay-hover { opacity: 1; }
+    .side-action-btn {
+      width: 30px; height: 30px;
+      background: rgba(20,20,20,.9); border: 1px solid #444; border-radius: 7px;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; transition: all .12s;
+    }
+    .side-action-btn:hover { background: #c62828; border-color: #c62828; }
+    .side-action-btn.expand:hover { background: #5865f2; border-color: #5865f2; }
+    .side-action-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .side-stream-item.is-focused { outline: 2px solid #c62828; outline-offset: -2px; cursor: default; }
+    .side-stream-item.is-focused .side-overlay-watch { display: none; }
+    /* Quando NÃO está em destaque: hover mostra só o botão expand (⛶), esconde ✕ */
+    .side-stream-item:not(.is-focused) .side-action-btn.close-side { display: none; }
+    /* Quando está em destaque (is-focused): hover mostra só o ✕, esconde expand */
+    .side-stream-item.is-focused .side-action-btn.expand { display: none; }
+    /* No item focado o hover não escurece o fundo (canvas está no mainTile) */
+    .side-stream-item.is-focused:hover .side-overlay-hover { background: rgba(0,0,0,.3); }
+    .side-stream-item:not(.is-focused) .side-canvas-wrap canvas { opacity: 0.45; }
+    .side-stream-name {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 8px; font-size: 0.71rem; color: #b5bac1; pointer-events: none;
+    }
+    .dot-green { width: 7px; height: 7px; border-radius: 50%; background: #3ba55d; flex-shrink: 0; }
+
+    .sidebar-divider { height: 1px; background: #1e1f22; flex-shrink: 0; }
+
+    /* Participantes na sidebar (quando há stream ativa) */
+    .sidebar-participants {
+      flex: 1; overflow-y: auto; padding: 6px 0 8px;
+    }
+    .sidebar-participants-header {
+      padding: 8px 10px 6px;
+      font-size: 0.63rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #6b6f76; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sidebar-p-badge {
+      background: #2b2d31; border-radius: 999px;
+      padding: 1px 7px; font-size: 0.68rem; color: #949ba4; font-weight: 600;
+    }
+    /* ── Card de participante na sidebar (banner + avatar + nome) ── */
+    .sb-participant {
+      display: flex; flex-direction: column;
+      overflow: hidden; cursor: default;
+      border-bottom: 1px solid #1e1f22;
+    }
+    /* Área do banner/cor — ocupa toda a largura, altura fixa */
+    .sb-p-banner {
+      width: 100%; height: 52px;
+      background: #36393f;          /* fallback: sem banner nem cor */
+      background-size: cover;
+      background-position: center top;
+      flex-shrink: 0;
+      position: relative;
+    }
+    /* Avatar circular sobre o banner, metade dentro / metade fora */
+    .sb-p-avatar-wrap {
+      position: absolute;
+      bottom: -22px; left: 10px;
+      width: 44px; height: 44px;
+    }
+    .sb-p-avatar-wrap img,
+    .sb-p-avatar-wrap .sb-p-avatar-ph {
+      width: 44px; height: 44px; border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #111214;   /* borda da cor do painel para "recortar" */
+      background: #36393f;
+    }
+    .sb-p-avatar-ph {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 700; color: #b5bac1;
+    }
+    /* Área inferior do card: nome com recuo para não cobrir o avatar */
+    .sb-p-info {
+      padding: 28px 10px 8px 62px;  /* top=28 para dar espaço ao avatar que "sobe" */
+    }
+    .sb-p-name {
+      font-size: 0.78rem; font-weight: 600; color: #f2f3f5;
+      display: flex; align-items: center; gap: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Espectadores (modo idle) */
+    .viewers-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .viewers-header {
+      padding: 8px 10px 6px;
+      font-size: 0.63rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: #6b6f76;
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .viewers-count-badge {
+      background: #2b2d31; border-radius: 999px;
+      padding: 1px 7px; font-size: 0.68rem; color: #949ba4; font-weight: 600;
+    }
+    .viewers-list { flex: 1; overflow-y: auto; padding: 4px 0 8px; }
+    .viewer-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 10px; transition: background .12s;
+    }
+    .viewer-item:hover { background: #18191c; }
+    .viewer-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0; background: #2b2d31;
+    }
+    .viewer-avatar-ph {
+      width: 30px; height: 30px; border-radius: 50%; background: #36393f;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; color: #b5bac1; font-weight: 700; flex-shrink: 0;
+    }
+    .viewer-name {
+      font-size: 0.78rem; color: #dcddde;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* scrollbars */
+    .side-streams::-webkit-scrollbar,
+    .viewers-list::-webkit-scrollbar,
+    .sidebar-participants::-webkit-scrollbar { width: 4px; }
+    .side-streams::-webkit-scrollbar-thumb,
+    .viewers-list::-webkit-scrollbar-thumb,
+    .sidebar-participants::-webkit-scrollbar-thumb { background: #3a3c41; border-radius: 4px; }
+
+    /* ========== MODAL QUALIDADE ========== */
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(6px);
+    }
+    .modal-card {
+      background: #2b2d31; border-radius: 14px;
+      padding: 24px; width: 90%; max-width: 360px;
+    }
+    .modal-card h2 { font-size: 1.05rem; margin-bottom: 6px; color: #fff; font-weight: 700; }
+    .modal-card .sub { font-size: 0.78rem; color: #949ba4; margin-bottom: 18px; line-height: 1.4; }
+    .quality-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .quality-opt {
+      padding: 12px 14px; background: #1e1f22; border: 1.5px solid #3a3c41;
+      border-radius: 10px; color: #fff; font-size: 0.82rem;
+      cursor: pointer; transition: all .15s; text-align: left;
+    }
+    .quality-opt:hover { border-color: #5865f2; background: #232428; }
+    .quality-opt.active { border-color: #5865f2; background: rgba(88,101,242,.15); }
+    .quality-opt .qlabel { font-weight: 700; display: block; margin-bottom: 3px; }
+    .quality-opt .qinfo  { font-size: 0.74rem; color: #949ba4; display: block; }
+    .modal-note { font-size: 0.75rem; color: #6b6f76; margin-bottom: 16px; line-height: 1.4; }
+    .modal-actions { display: flex; justify-content: flex-end; }
+    .modal-close-btn {
+      padding: 8px 24px; background: #5865f2; border: none;
+      border-radius: 999px; color: #fff; font-size: 0.85rem;
+      font-weight: 600; cursor: pointer; transition: background .15s;
+    }
+    .modal-close-btn:hover { background: #4752c4; }
+
+    /* ========== TOAST ========== */
+    .toast {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+      background: #2b2d31; border: 1px solid #3a3c41; color: #dbdee1;
+      padding: 7px 14px; border-radius: 9px; font-size: 0.82rem;
+      z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+    .toast.err { border-color: #ff1744; color: #ff8a80; }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar" id="topbar">
+    <img class="logo" src="/foto/1321a2929b5943c3cc2be6e3722c2552.png" alt="NEXT">
+    <div id="people" class="pill">…</div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="muteBtn" title="Mutear áudio">
+        <svg id="micOn" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <svg id="micOff" viewBox="0 0 24 24" style="display:none"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <div id="userChip" class="user-chip" hidden>
+        <img id="userAvatar" alt="">
+        <span id="userName">…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE -->
+  <div class="stage">
+
+    <!-- Área central -->
+    <div class="main-area" id="mainArea">
+
+      <!-- Aviso mobile: transmissão de tela só no PC -->
+      <div class="mobile-camera-hint">
+        <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        No celular, só câmera está disponível
+      </div>
+
+      <!-- Estado idle -->
+      <div id="idleView" class="idle-view">
+        <div id="participantsGrid" class="participants-grid"></div>
+        <div id="connectMsg" class="connect-msg">
+          <div class="spinner"></div>
+          <span id="connectText">Conectando…</span>
+        </div>
+      </div>
+
+      <!-- Tile de stream principal (canvas injetado pelo JS) -->
+      <div id="mainTile" class="main-tile" hidden>
+        <!-- canvas vai aqui -->
+        <!-- Botão X para desfocalizar — aparece ao hover -->
+        <button id="closeMain" class="close-main" title="Fechar">✕</button>
+        <!-- Label "você" canto superior direito (só aparece se for a sua própria stream) -->
+        <div class="you-label" id="youLabel" hidden>você</div>
+        <!-- Barra inferior: nome + contador -->
+        <div class="stream-bottom-bar" id="streamBottomBar">
+          <div class="stream-name-pill">
+            <span class="live-dot"></span>
+            <span id="mainLabelName">Transmissão</span>
+            <span class="badge" id="mainLabelBadge">tela</span>
+          </div>
+          <div class="viewer-count-bar">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span id="viewerCountMain">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dock flutuante (hover) — aparece tanto no idle quanto no live -->
+      <div class="live-dock" id="liveDock">
+        <!-- Grupo 1: tela, câmera, config -->
+        <div class="dock-group">
+          <button class="dock-btn" id="btnTela" disabled title="Transmitir tela">
+            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+          </button>
+          <button class="dock-btn" id="btnCamera" disabled title="Transmitir câmera">
+            <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          </button>
+          <button class="dock-btn" id="settingsBtn" title="Qualidade">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></svg>
+          </button>
+        </div>
+        <!-- Grupo 2: abrir no site / tela cheia -->
+        <div class="dock-group" id="dockGroupLive" hidden>
+          <!-- Abrir no site externo -->
+          <button class="dock-btn" id="btnOpenSite" title="Ver no site">
+            <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+          <!-- Tela cheia -->
+          <button class="dock-btn" id="btnFullscreen" title="Tela cheia">
+            <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+
+      <!-- Seção: outras transmissões (quando há mais de 1 stream) -->
+      <div id="sideStreamsSection" hidden>
+        <div class="sidebar-title" id="sideStreamsTitle">Outra Transmissão</div>
+        <div class="side-streams" id="sideStreamsList"></div>
+        <div class="sidebar-divider"></div>
+      </div>
+
+      <!-- Participantes na sidebar quando há stream ativa -->
+      <div id="sbParticipantsSection" hidden>
+        <div class="sidebar-participants-header">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Na sala
+          <span class="sidebar-p-badge" id="sbParticipantsBadge">0</span>
+        </div>
+        <div class="sidebar-participants" id="sbParticipantsList"></div>
+      </div>
+
+      <!-- Espectadores (modo idle / sem stream) -->
+      <div class="viewers-section" id="viewersSection">
+        <div class="viewers-header">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Assistindo
+          <span class="viewers-count-badge" id="viewersBadge">0</span>
+        </div>
+        <div class="viewers-list" id="viewersList"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL QUALIDADE -->
+  <div id="qualityModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Qualidade da transmissão</h2>
+      <p class="sub">A opção equilibrada é a melhor para a maioria. 90 e 120 fps exigem mais upload e hardware.</p>
+      <div class="quality-grid">
+        <button class="quality-opt" data-q="1500000" data-fps="30"><span class="qlabel">30 fps</span><span class="qinfo">1,5 Mb/s · Leve</span></button>
+        <button class="quality-opt active" data-q="2500000" data-fps="60"><span class="qlabel">60 fps</span><span class="qinfo">2,5 Mb/s · Equilibrado</span></button>
+        <button class="quality-opt" data-q="5000000" data-fps="90"><span class="qlabel">90 fps</span><span class="qinfo">5 Mb/s · Nítido</span></button>
+        <button class="quality-opt" data-q="8000000" data-fps="120"><span class="qlabel">120 fps</span><span class="qinfo">8 Mb/s · Máximo</span></button>
+      </div>
+      <p class="modal-note">A resolução é limitada a 1080p. O navegador reduz quadros automaticamente se o computador não acompanhar.</p>
+      <div class="modal-actions"><button class="modal-close-btn" id="qualityClose">Concluir</button></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module">
+    import { DiscordSDK } from 'https://esm.sh/@discord/embedded-app-sdk';
+
+    const CLIENT_ID = '1540951591685853305';
+    const BASE = new URLSearchParams(location.search).has('frame_id') ? '/.proxy' : '';
+    const $ = (id) => document.getElementById(id);
+
+    // ── Detecta mobile ──
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || !navigator.mediaDevices?.getDisplayMedia;
+    if (isMobile) document.body.classList.add('is-mobile');
+
+    let discordSdk   = null;
+    let session      = null;
+    let ws           = null;
+    let backoff      = 1000;
+    let myUserId     = null;   // id do usuário logado
+
+    const players    = new Map();   // slot → StreamPlayer
+    let focusedSlot  = null;
+    let participants = [];
+    let audioMuted   = localStorage.getItem('nextMuted') === 'true';
+    let isFullscreen = false;
+
+    // ── toast ──────────────────────────────────────────────────────────────
+    function toast(msg, err = false) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.className = 'toast' + (err ? ' err' : '');
+      el.hidden = false;
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => (el.hidden = true), 4000);
+    }
+
+    // ── api ────────────────────────────────────────────────────────────────
+    async function api(path, body) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const res = await fetch(BASE + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || json.message || 'HTTP ' + res.status);
+        return json;
+      } finally { clearTimeout(t); }
+    }
+
+    // ── helpers de decode ──────────────────────────────────────────────────
+    function b64ToU8(b64) {
+      const bin = atob(b64), out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function pedirKeyframe() {
+      try { if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'need-keyframe' })); } catch {}
+    }
+
+    // ── StreamPlayer ───────────────────────────────────────────────────────
+    class StreamPlayer {
+      constructor(info) {
+        this.slot        = info.slot;
+        this.info        = info;
+        this.config      = info.config      || null;
+        this.audioConfig = info.audioConfig || null;
+
+        this.canvas = document.createElement('canvas');
+        this.ctx    = this.canvas.getContext('2d', { alpha: false });
+
+        this.decoder    = null;
+        this.waitingKey = true;
+        this.pending    = [];
+
+        this.audioDecoder = null;
+        this.audioCtx     = null;
+        this.nextAudioAt  = 0;
+
+        this._buildSideItem(info);
+      }
+
+      _buildSideItem(info) {
+        this.sideItem = document.createElement('div');
+        this.sideItem.className = 'side-stream-item';
+        this.sideItem.dataset.slot = this.slot;
+
+        this.canvasWrap = document.createElement('div');
+        this.canvasWrap.className = 'side-canvas-wrap';
+        this.canvasWrap.appendChild(this.canvas);
+
+        // Overlay "Assistir"
+        const watchOverlay = document.createElement('div');
+        watchOverlay.className = 'side-overlay-watch';
+        watchOverlay.innerHTML = `<div class="side-watch-pill">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+          Assistir tela
+        </div>`;
+        this.canvasWrap.appendChild(watchOverlay);
+
+        // Overlay hover (✕ e ⛶)
+        const hoverOverlay = document.createElement('div');
+        hoverOverlay.className = 'side-overlay-hover';
+
+        const btnClose = document.createElement('button');
+        btnClose.className = 'side-action-btn close-side';
+        btnClose.title = 'Fechar';
+        btnClose.textContent = '✕';
+        btnClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Só desfocaliza — não destrói o player
+          if (focusedSlot === this.slot) {
+            const p = players.get(this.slot);
+            if (p) {
+              p.canvasWrap.insertBefore(p.canvas, p.canvasWrap.firstChild);
+              p.canvas.style.cssText = '';
+              p.sideItem.classList.remove('is-focused');
+            }
+            focusedSlot = null;
+            $('mainTile').hidden = true;
+            $('idleView').hidden = false;
+            renderParticipantsGrid();
+            updateSidebar();
+            updatePeople();
+          }
+        });
+
+        const btnExpand = document.createElement('button');
+        btnExpand.className = 'side-action-btn expand';
+        btnExpand.title = 'Colocar no centro';
+        btnExpand.innerHTML = `<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+        btnExpand.addEventListener('click', (e) => { e.stopPropagation(); setFocus(this.slot); });
+
+        hoverOverlay.append(btnClose, btnExpand);
+        this.canvasWrap.appendChild(hoverOverlay);
+
+        const nameRow = document.createElement('div');
+        nameRow.className = 'side-stream-name';
+        nameRow.innerHTML = `<span class="dot-green"></span><span>${info.name || 'Transmissão'}</span>`;
+
+        this.sideItem.append(this.canvasWrap, nameRow);
+        this.sideItem.addEventListener('click', () => setFocus(this.slot));
+      }
+
+      setVideoConfig(config) {
+        const mudou = !this.config ||
+          this.config.width  !== config.width  ||
+          this.config.height !== config.height ||
+          this.config.codec  !== config.codec;
+        this.config = config;
+        if (!mudou) { this.flushPending(); return; }
+        if (this.decoder) {
+          try { this.decoder.close(); } catch {}
+          this.decoder = null; this.waitingKey = true; this.pending.length = 0;
+          pedirKeyframe();
+        }
+        this.ensureDecoder();
+      }
+
+      setAudioConfig(config) { this.audioConfig = config; }
+
+      ensureDecoder() {
+        if (this.decoder || !this.config || !window.VideoDecoder) return;
+        const cfg = { ...this.config };
+        if (cfg.description && typeof cfg.description === 'string') cfg.description = b64ToU8(cfg.description);
+        cfg.optimizeForLatency = true;
+        try {
+          this.decoder = new VideoDecoder({
+            output: (frame) => this.draw(frame),
+            error: () => {
+              try { this.decoder.close(); } catch {}
+              this.decoder = null; this.waitingKey = true;
+            },
+          });
+          this.decoder.configure(cfg);
+        } catch { this.decoder = null; }
+      }
+
+      flushPending() {
+        this.ensureDecoder();
+        const list = this.pending; this.pending = [];
+        for (const c of list) this.feed(c);
+      }
+
+      pushBinary(buffer) {
+        const dv = new DataView(buffer);
+        const tipo = dv.getUint8(1);
+        if (tipo === 3) return this.pushAudio(buffer);
+        const ts = dv.getFloat64(2);
+        const data = new Uint8Array(buffer, 18);
+        const chunk = new EncodedVideoChunk({
+          type: tipo === 1 ? 'key' : 'delta',
+          timestamp: Number.isFinite(ts) ? ts : performance.now() * 1000,
+          data,
+        });
+        if (!this.decoder && this.pending.length < 120) {
+          this.pending.push(chunk); this.flushPending(); return;
+        }
+        this.feed(chunk);
+      }
+
+      feed(chunk) {
+        if (chunk.type === 'key') this.waitingKey = false;
+        if (this.waitingKey) return;
+        if (!this.decoder || this.decoder.state !== 'configured') return;
+        try { this.decoder.decode(chunk); } catch {}
+      }
+
+      draw(frame) {
+        const w = frame.displayWidth, h = frame.displayHeight;
+        if (w && (this.canvas.width !== w || this.canvas.height !== h)) {
+          this.canvas.width = w; this.canvas.height = h;
+        }
+        try { this.ctx.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height); } catch {}
+        frame.close();
+      }
+
+      ensureAudio() {
+        if (this.audioCtx || !window.AudioDecoder || !this.audioConfig) return null;
+        try {
+          this.audioCtx = new AudioContext({ sampleRate: this.audioConfig.sampleRate || 48000 });
+          if (audioMuted) this.audioCtx.suspend().catch(() => {});
+          this.audioDecoder = new AudioDecoder({
+            output: (ad) => this.play(ad),
+            error: () => {},
+          });
+          this.audioDecoder.configure({
+            codec: this.audioConfig.codec || 'opus',
+            sampleRate: this.audioConfig.sampleRate || 48000,
+            numberOfChannels: this.audioConfig.numberOfChannels || 2,
+          });
+        } catch { this.audioCtx = null; this.audioDecoder = null; }
+        return this.audioCtx;
+      }
+
+      pushAudio(buffer) {
+        if (!window.AudioDecoder) return;
+        const ctx = this.ensureAudio(); if (!ctx) return;
+        if (!audioMuted && ctx.state === 'suspended') ctx.resume().catch(() => {});
+        const dv = new DataView(buffer);
+        const ts = dv.getFloat64(2), data = new Uint8Array(buffer, 18);
+        if (!this.audioDecoder || this.audioDecoder.state !== 'configured') return;
+        try {
+          this.audioDecoder.decode(new EncodedAudioChunk({
+            type: 'key',
+            timestamp: Number.isFinite(ts) ? ts : performance.now() * 1000,
+            data,
+          }));
+        } catch {}
+      }
+
+      play(audioData) {
+        const ctx = this.audioCtx;
+        if (!ctx || ctx.state !== 'running') { audioData.close(); return; }
+        const frames = audioData.numberOfFrames;
+        const channels = Math.min(2, audioData.numberOfChannels);
+        const buf = ctx.createBuffer(channels, frames, audioData.sampleRate);
+        for (let c = 0; c < channels; c++) {
+          const plane = new Float32Array(frames);
+          audioData.copyTo(plane, { planeIndex: c, format: 'f32-planar' });
+          buf.copyToChannel(plane, c);
+        }
+        audioData.close();
+        const src = ctx.createBufferSource();
+        src.buffer = buf; src.connect(ctx.destination);
+        const at = Math.max(ctx.currentTime + 0.05, this.nextAudioAt);
+        src.start(at); this.nextAudioAt = at + buf.duration;
+      }
+
+      destroy() {
+        try { this.decoder?.close();      } catch {}
+        try { this.audioDecoder?.close(); } catch {}
+        this.audioCtx?.close().catch(() => {});
+        this.sideItem.remove();
+      }
+    }
+
+    // ── grid de participantes (idle) ───────────────────────────────────────
+    function renderParticipantsGrid() {
+      const grid = $('participantsGrid');
+      grid.innerHTML = '';
+      // Esconde o grid apenas se houver uma stream em destaque no centro.
+      // Se todas foram fechadas (desfocadas) mas ainda existem na sidebar,
+      // mostra o grid de participantes mesmo assim.
+      if (focusedSlot != null) { grid.hidden = true; return; }
+      grid.hidden = false;
+      if (!participants.length) return;
+      for (const p of participants) {
+        const tile = document.createElement('div');
+        tile.className = 'participant-tile';
+
+        /* Fundo: banner ou accent_color */
+        if (p.banner) {
+          const ext = p.banner.startsWith('a_') ? 'gif' : 'png';
+          tile.style.backgroundImage = `url(https://cdn.discordapp.com/banners/${p.id}/${p.banner}.${ext}?size=480)`;
+          tile.style.backgroundSize = 'cover';
+          tile.style.backgroundPosition = 'center';
+        } else if (p.accentColor != null) {
+          tile.style.background = '#' + p.accentColor.toString(16).padStart(6, '0');
+        }
+
+        const avEl = makeAvatar(p, 'participant-avatar', 'participant-avatar-ph', 80);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'participant-name';
+        nameEl.textContent = p.name || 'Convidado';
+        tile.append(avEl, nameEl);
+        grid.appendChild(tile);
+      }
+    }
+
+    // ── sidebar de participantes (durante stream) ──────────────────────────
+    function renderSbParticipants() {
+      const list = $('sbParticipantsList');
+      list.innerHTML = '';
+      $('sbParticipantsBadge').textContent = participants.length;
+
+      for (const p of participants) {
+        const card = document.createElement('div');
+        card.className = 'sb-participant';
+
+        /* --- Fundo: banner ou accent_color --- */
+        const banner = document.createElement('div');
+        banner.className = 'sb-p-banner';
+
+        if (p.banner) {
+          // Hash de banner → URL da CDN do Discord
+          const ext = p.banner.startsWith('a_') ? 'gif' : 'png';
+          banner.style.backgroundImage = `url(https://cdn.discordapp.com/banners/${p.id}/${p.banner}.${ext}?size=480)`;
+        } else if (p.accentColor != null) {
+          // accent_color é inteiro; converte para hex
+          banner.style.background = '#' + p.accentColor.toString(16).padStart(6, '0');
+        }
+        // else: mantém o #36393f do CSS
+
+        /* --- Avatar circular sobre o banner --- */
+        const avatarWrap = document.createElement('div');
+        avatarWrap.className = 'sb-p-avatar-wrap';
+
+        if (p.av) {
+          const img = document.createElement('img');
+          img.src = `https://cdn.discordapp.com/avatars/${p.id}/${p.av}.png?size=128`;
+          img.alt = p.name;
+          img.onerror = () => img.replaceWith(makeSbPh(p.name));
+          avatarWrap.appendChild(img);
+        } else {
+          avatarWrap.appendChild(makeSbPh(p.name));
+        }
+
+        banner.appendChild(avatarWrap);
+
+        /* --- Nome --- */
+        const info = document.createElement('div');
+        info.className = 'sb-p-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'sb-p-name';
+        nameEl.innerHTML = `<span class="dot-green"></span>${p.name || 'Convidado'}`;
+        info.appendChild(nameEl);
+
+        card.append(banner, info);
+        list.appendChild(card);
+      }
+    }
+
+    function makeSbPh(name) {
+      const el = document.createElement('div');
+      el.className = 'sb-p-avatar-ph';
+      el.textContent = (name || '?').charAt(0).toUpperCase();
+      return el;
+    }
+
+    // ── sidebar de espectadores (idle) ─────────────────────────────────────
+    function renderViewers() {
+      const list = $('viewersList');
+      list.innerHTML = '';
+      $('viewersBadge').textContent = participants.length;
+      for (const p of participants) {
+        const item = document.createElement('div');
+        item.className = 'viewer-item';
+
+        // Avatar pequeno com cor de accent como borda colorida se não tiver foto
+        const avEl = makeAvatar(p, 'viewer-avatar', 'viewer-avatar-ph', 30);
+        if (p.accentColor != null && !p.av) {
+          avEl.style.background = '#' + p.accentColor.toString(16).padStart(6, '0');
+        }
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'viewer-name';
+        nameEl.textContent = p.name || 'Convidado';
+        item.append(avEl, nameEl);
+        list.appendChild(item);
+      }
+    }
+
+    function makeAvatar(p, imgClass, phClass, size) {
+      if (p.av) {
+        const img = document.createElement('img');
+        img.className = imgClass;
+        img.src = `https://cdn.discordapp.com/avatars/${p.id}/${p.av}.png?size=128`;
+        img.alt = p.name;
+        img.style.width = img.style.height = size + 'px';
+        img.onerror = () => img.replaceWith(makePh(p.name, phClass, size));
+        return img;
+      }
+      return makePh(p.name, phClass, size);
+    }
+
+    function makePh(name, cls, size) {
+      const el = document.createElement('div');
+      el.className = cls;
+      el.style.width = el.style.height = size + 'px';
+      el.textContent = (name || '?').charAt(0).toUpperCase();
+      return el;
+    }
+
+    // ── atualiza estado visual da sidebar ──────────────────────────────────
+    function updateSidebar() {
+      const hasStream = players.size > 0 && focusedSlot != null;
+
+      // Seção de streams alternativas
+      const otherCount = players.size - (focusedSlot != null ? 1 : 0);
+      $('sideStreamsSection').hidden = otherCount <= 0;
+      $('sideStreamsTitle').textContent = otherCount > 1 ? 'Outras Transmissões' : 'Outra Transmissão';
+
+      // Quando há stream: mostra participantes; esconde lista de espectadores
+      $('sbParticipantsSection').hidden = !hasStream;
+      $('viewersSection').hidden        =  hasStream;
+
+      if (hasStream) {
+        renderSbParticipants();
+      } else {
+        renderViewers();
+      }
+
+      // Grupo 2 do dock (abrir site / tela cheia) só aparece quando há stream
+      $('dockGroupLive').hidden = !hasStream;
+    }
+
+    function updatePeople() {
+      const n = participants.length;
+      $('people').textContent = players.size > 0
+        ? `${players.size} transmitindo · ${n} na sala`
+        : `${n} na sala`;
+      $('viewerCountMain').textContent = n;
+    }
+
+    // ── foco ───────────────────────────────────────────────────────────────
+    function setFocus(slot) {
+      const prev = focusedSlot;
+      focusedSlot = slot;
+
+      // Devolve canvas anterior para a sidebar
+      if (prev != null && prev !== slot) {
+        const pp = players.get(prev);
+        if (pp) {
+          pp.canvasWrap.insertBefore(pp.canvas, pp.canvasWrap.firstChild);
+          pp.canvas.style.cssText = '';
+          pp.sideItem.classList.remove('is-focused');
+        }
+      }
+
+      for (const [s, p] of players) p.sideItem.classList.toggle('is-focused', s === slot);
+
+      const p = players.get(slot);
+      if (p) {
+        // Move canvas para o mainTile
+        const bar = $('streamBottomBar');
+        $('mainTile').insertBefore(p.canvas, bar);
+        p.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;';
+
+        $('mainLabelName').textContent = p.info.name || 'Transmissão';
+        $('mainLabelBadge').textContent = p.info.fonte === 'camera' ? 'cam' : 'tela';
+
+        // "você" aparece se for a própria stream do usuário
+        $('youLabel').hidden = (p.info.userId !== myUserId);
+
+        $('mainTile').hidden = false;
+        $('idleView').hidden = true;
+      } else {
+        $('mainTile').hidden = true;
+        $('idleView').hidden = false;
+        renderParticipantsGrid();
+      }
+
+      updateSidebar();
+      updatePeople();
+    }
+
+    function closeStream(slot) {
+      if (focusedSlot === slot) {
+        $('mainTile').hidden = true; focusedSlot = null;
+      }
+      const p = players.get(slot);
+      if (p) { p.destroy(); players.delete(slot); }
+      const next = players.size > 0 ? players.keys().next().value : null;
+      setFocus(next);
+    }
+
+    // ── add / remove ────────────────────────────────────────────────────────
+    function addStream(info) {
+      if (players.has(info.slot)) return players.get(info.slot);
+      const p = new StreamPlayer(info);
+      players.set(info.slot, p);
+      $('sideStreamsList').appendChild(p.sideItem);
+      if (focusedSlot == null) setFocus(info.slot);
+      else updateSidebar();
+      updatePeople();
+      return p;
+    }
+
+    function removeStream(slot) {
+      const p = players.get(slot);
+      if (!p) return;
+      if (focusedSlot === slot) focusedSlot = null;
+      p.destroy(); players.delete(slot);
+      const next = players.size > 0 ? players.keys().next().value : null;
+      setFocus(next);
+    }
+
+    function reconcile(streams) {
+      const alive = new Set(streams.map(s => s.slot));
+      for (const slot of [...players.keys()]) if (!alive.has(slot)) removeStream(slot);
+      for (const s of streams) addStream(s);
+      updatePeople();
+    }
+
+    // ── botão X do tile principal ──────────────────────────────────────────
+    $('closeMain').addEventListener('click', () => {
+      if (focusedSlot == null) return;
+      const p = players.get(focusedSlot);
+      if (p) {
+        // Devolve canvas para a sidebar
+        p.canvasWrap.insertBefore(p.canvas, p.canvasWrap.firstChild);
+        p.canvas.style.cssText = '';
+        p.sideItem.classList.remove('is-focused');
+      }
+      focusedSlot = null;
+      $('mainTile').hidden = true;
+      $('idleView').hidden = false;
+      renderParticipantsGrid();
+      updateSidebar();
+      updatePeople();
+    });
+
+    // ── tela cheia ─────────────────────────────────────────────────────────
+    function toggleFullscreen() {
+      isFullscreen = !isFullscreen;
+      document.body.classList.toggle('fullscreen-mode', isFullscreen);
+      // Atualiza ícone do botão
+      const btn = $('btnFullscreen');
+      if (isFullscreen) {
+        btn.title = 'Sair da tela cheia';
+        btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>`;
+      } else {
+        btn.title = 'Tela cheia';
+        btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+      }
+    }
+
+    $('btnFullscreen').addEventListener('click', toggleFullscreen);
+
+    // Sai da tela cheia com Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isFullscreen) toggleFullscreen();
+    });
+
+    // ── abrir no site ──────────────────────────────────────────────────────
+    $('btnOpenSite').addEventListener('click', () => {
+      if (!session) return;
+      // Abre a página de share como espectador, passando o viewerToken
+      const url = new URL(location.href.split('?')[0]);
+      url.searchParams.set('t', session.viewerToken);
+      window.open(url.toString(), '_blank');
+    });
+
+    // ── abrir share (transmitir) ───────────────────────────────────────────
+    async function abrirShare(fonte) {
+      if (!session) return;
+      const url = new URL(session.shareUrl);
+      const q = JSON.parse(localStorage.getItem('nextQuality') || '{"q":"2500000","fps":"30"}');
+      url.searchParams.set('t',     session.broadcasterToken);
+      url.searchParams.set('q',     q.q);
+      url.searchParams.set('fps',   q.fps);
+      url.searchParams.set('fonte', fonte);
+      if (discordSdk?.commands?.openExternalLink) {
+        try {
+          const r = await discordSdk.commands.openExternalLink({ url: url.toString() });
+          if (r?.opened === false) toast('Você recusou abrir o link.', true);
+          return;
+        } catch (err) { toast('Não foi possível abrir: ' + err.message, true); return; }
+      }
+      window.open(url.toString(), '_blank');
+    }
+
+    $('btnTela').addEventListener('click',   () => abrirShare('tela'));
+    $('btnCamera').addEventListener('click', () => abrirShare('camera'));
+
+    // ── mute ────────────────────────────────────────────────────────────────
+    function applyMute() {
+      for (const p of players.values()) {
+        if (p.audioCtx) {
+          if (audioMuted) p.audioCtx.suspend().catch(() => {});
+          else            p.audioCtx.resume().catch(() => {});
+        }
+      }
+      $('micOn').style.display  = audioMuted ? 'none' : '';
+      $('micOff').style.display = audioMuted ? ''     : 'none';
+      $('muteBtn').classList.toggle('muted', audioMuted);
+      $('muteBtn').title = audioMuted ? 'Desmutear' : 'Mutear';
+    }
+    applyMute();
+    $('muteBtn').addEventListener('click', () => {
+      audioMuted = !audioMuted;
+      localStorage.setItem('nextMuted', audioMuted);
+      applyMute();
+    });
+    document.addEventListener('click', () => {
+      if (!audioMuted) for (const p of players.values()) p.audioCtx?.resume?.().catch(() => {});
+    }, { capture: true });
+
+    // ── qualidade ───────────────────────────────────────────────────────────
+    let selectedQuality = JSON.parse(localStorage.getItem('nextQuality') || 'null') || { q: '2500000', fps: '60' };
+
+    function highlightQuality() {
+      document.querySelectorAll('.quality-opt').forEach(el =>
+        el.classList.toggle('active', el.dataset.q === selectedQuality.q && el.dataset.fps === selectedQuality.fps)
+      );
+    }
+    highlightQuality();
+
+    document.querySelectorAll('.quality-opt').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedQuality = { q: el.dataset.q, fps: el.dataset.fps };
+        localStorage.setItem('nextQuality', JSON.stringify(selectedQuality));
+        highlightQuality();
+      });
+    });
+    $('settingsBtn').addEventListener('click', () => { $('qualityModal').hidden = false; });
+    $('qualityClose').addEventListener('click', () => {
+      $('qualityModal').hidden = true;
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'config-broadcast', opcoes: { q: selectedQuality.q, fps: selectedQuality.fps } }));
+      }
+    });
+    $('qualityModal').addEventListener('click', e => {
+      if (e.target === $('qualityModal')) $('qualityModal').hidden = true;
+    });
+
+    // ── WebSocket ──────────────────────────────────────────────────────────
+    function connectViewer() {
+      if (!session) return;
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}${BASE}/ws?t=${encodeURIComponent(session.viewerToken)}`);
+      ws.binaryType = 'arraybuffer';
+      let openedOnce = false;
+
+      ws.addEventListener('open', () => { openedOnce = true; backoff = 1000; updatePeople(); });
+
+      ws.addEventListener('message', (e) => {
+        if (typeof e.data !== 'string') {
+          const slot = new DataView(e.data).getUint8(0);
+          players.get(slot)?.pushBinary(e.data); return;
+        }
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        switch (msg.type) {
+          case 'state':
+            // participants só vem quando há mudança real na lista de pessoas.
+            // Se não vier, mantém o que já tinha — evita zerar ao receber
+            // mensagens parciais de estado.
+            if (msg.participants) participants = msg.participants;
+            reconcile(msg.streams ?? []);
+            renderParticipantsGrid();
+            updateSidebar();
+            updatePeople();
+            break;
+          case 'viewers-count':
+            // Apenas atualiza o contador de visualizadores (vem do broadcaster)
+            updatePeople();
+            break;
+          case 'stream-start': addStream(msg); break;
+          case 'stream-stop':  removeStream(msg.slot); break;
+          case 'config': players.get(msg.slot)?.setVideoConfig(msg.config); break;
+          case 'audio-config': players.get(msg.slot)?.setAudioConfig(msg.config); break;
+          case 'room-gone': toast('A sala foi fechada.', true); break;
+          case 'error':     toast(msg.message || 'Erro na sala.', true); break;
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        for (const p of players.values()) p.destroy();
+        players.clear(); focusedSlot = null;
+        if (!session) return;
+        $('idleView').hidden = false;
+        $('mainTile').hidden = true;
+        $('participantsGrid').hidden = true;
+        $('connectMsg').hidden = false;
+        $('connectText').textContent = openedOnce ? 'Reconectando…' : 'Não foi possível conectar.';
+        setTimeout(connectViewer, backoff);
+        backoff = Math.min(backoff * 2, 15000);
+      });
+
+      ws.addEventListener('error', () => ws.close());
+    }
+
+    // ── Discord SDK ─────────────────────────────────────────────────────────
+    (async () => {
+      try {
+        discordSdk = new DiscordSDK(CLIENT_ID);
+        await discordSdk.ready();
+
+        const { code } = await discordSdk.commands.authorize({
+          client_id: CLIENT_ID, response_type: 'code',
+          state: '', prompt: 'none', scope: ['identify'],
+        });
+
+        const { access_token } = await api('/api/token', { code });
+        const auth = await discordSdk.commands.authenticate({ access_token });
+        myUserId = auth.user.id;
+
+        session = await api('/api/session', {
+          access_token,
+          instance_id: discordSdk.instanceId,
+          guild_id:    discordSdk.guildId,
+          channel_id:  discordSdk.channelId,
+        });
+
+        const av = auth.user.avatar
+          ? `https://cdn.discordapp.com/avatars/${auth.user.id}/${auth.user.avatar}.png`
+          : `https://cdn.discordapp.com/embed/avatars/${(Number(auth.user.discriminator || 0) % 5)}.png`;
+        $('userAvatar').src = av;
+        $('userName').textContent = auth.user.global_name || auth.user.username;
+        $('userChip').hidden = false;
+
+        $('btnTela').disabled   = false;
+        $('btnCamera').disabled = false;
+
+        $('connectMsg').hidden = true;
+        renderParticipantsGrid();
+        updatePeople();
+        connectViewer();
+      } catch (e) {
+        console.error(e);
+        $('connectText').textContent = e.message || 'Erro ao conectar. Recarregue.';
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Cup · Transmissões</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Agdasima:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/landing.css">
+</head>
+<body>
+
+  <div class="page-bg" aria-hidden="true">
+    <img class="page-bg__image" src="/assets/landing/bg.png" alt="">
+    <div class="page-bg__overlay"></div>
+    <div class="page-bg__fade"></div>
+  </div>
+
+  <div class="page">
+    <header class="nav">
+      <div class="nav__brand">
+        <img class="nav__logo" src="/assets/landing/logo.png" alt="Next Cup">
+        <span class="nav__title">Next Cup</span>
+        <span class="nav__divider"></span>
+        <span class="nav__subtitle">transmissões</span>
+      </div>
+      <button class="btn-discord" id="btnDiscordNav" type="button">
+        <img src="/assets/landing/icon-discord-btn.svg" alt="">
+        Conectar Discord
+      </button>
+    </header>
+
+    <main class="hero">
+      <section class="hero__content">
+        <div class="hero__label">
+          <span class="hero__label-bar"></span>
+          <span class="hero__label-text">Next CUP</span>
+          <span class="hero__label-sep">ponto a ponto</span>
+        </div>
+
+        <h1 class="hero__title">
+          Sua tela, ao vivo,<br>
+          direto para o Discord.
+        </h1>
+
+        <p class="hero__desc">
+          Entre na sua atividade do Discord e coloque para transmitir pelo navegador.
+          Assim, seus amigos vão conseguir assistir à transmissão diretamente pelo Discord.
+        </p>
+
+        <ul class="hero__features">
+          <li class="hero__feature">
+            <span class="hero__feature-icon">
+              <img src="/assets/landing/icon-bolt.svg" alt="">
+            </span>
+            <span>Sala instantanea</span>
+          </li>
+          <li class="hero__feature">
+            <span class="hero__feature-icon">
+              <img src="/assets/landing/icon-shield.svg" alt="">
+            </span>
+            <span>O video vai de um navegador ao outro, sem passar pelo servidor</span>
+          </li>
+          <li class="hero__feature">
+            <span class="hero__feature-icon">
+              <img src="/assets/landing/icon-users.svg" alt="">
+            </span>
+            <span>Varias pessoas podem transmitir ao mesmo tempo</span>
+          </li>
+        </ul>
+      </section>
+
+      <aside class="card-wrap">
+        <div class="onboard-card">
+          <div class="onboard-card__header">
+            <img src="/assets/landing/icon-discord.svg" alt="">
+            <span>INICIAR NO DISCORD</span>
+          </div>
+
+          <div class="step">
+            <div class="step__title">
+              <span class="step__num">1</span>
+              <span class="step__label">Conecte sua conta</span>
+            </div>
+            <p class="step__desc">
+              Use o botão <strong>Conectar Discord</strong> no topo da página para autenticar.
+              Sua foto e nome aparecem aqui automaticamente.
+            </p>
+
+            <div class="auth-waiting" id="authWaiting">
+              <img src="/assets/landing/icon-info.svg" alt="">
+              <span>Aguardando autenticação…</span>
+            </div>
+
+            <div class="user-connected" id="userConnected" hidden>
+              <img class="user-connected__avatar" id="userAvatar" src="/assets/landing/avatar.png" alt="">
+              <div class="user-connected__info">
+                <div class="user-connected__name" id="userName">—</div>
+                <div class="user-connected__status">Discord conectado</div>
+              </div>
+              <div class="user-connected__actions">
+                <button class="icon-btn icon-btn--ok" type="button" title="Conectado">
+                  <img src="/assets/landing/icon-check.svg" alt="">
+                </button>
+                <button class="icon-btn" id="btnDisconnect" type="button" title="Desconectar">
+                  <span>✕</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="step step--2">
+            <div class="step__title">
+              <span class="step__num">2</span>
+              <span class="step__label">Canal de voz</span>
+            </div>
+
+            <button class="channel-picker" id="channelPicker" type="button" disabled>
+              <img src="/assets/landing/icon-speaker.svg" alt="">
+              <span class="channel-picker__name" id="channelName">Buscando canal…</span>
+              <span class="channel-picker__radio"></span>
+            </button>
+
+            <div class="channel-list" id="channelList"></div>
+
+            <button class="btn-connect-bot" id="btnConnectBot" type="button" disabled>
+              <img src="/assets/landing/icon-arrow.svg" alt="">
+              <span>Conectar bot</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      Next Cup · Transmissões ao vivo · nextcuptransmissoes.online
+    </footer>
+  </div>
+
+  <button class="fab" id="fab" type="button" title="Suporte Discord">
+    <img src="/assets/landing/icon-chat.svg" alt="">
+  </button>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="/landing.js"></script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Next Transmissões</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d0d0f;
+      color: #f2f3f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+      cursor: default;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+
+    input, textarea {
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      cursor: text;
+    }
+
+    /* ── Fundo com banner ── */
+    .bg-banner {
+      position: fixed; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(10,10,14,.55) 0%, rgba(10,10,14,.92) 60%, #0d0d0f 100%),
+        url('/foto/Next_-_Banner.png') center/cover no-repeat;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* partículas decorativas */
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 40% at 50% 0%, rgba(198,40,40,.18) 0%, transparent 70%);
+    }
+
+    /* ── Container central ── */
+    .center {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 20px; text-align: center;
+      padding: 24px;
+    }
+
+    /* Logo */
+    .logo {
+      width: 72px; height: 72px;
+      border-radius: 18px;
+      object-fit: contain;
+      box-shadow: 0 8px 32px rgba(198,40,40,.35);
+    }
+
+    /* Título */
+    .brand {
+      font-size: 2rem; font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 30%, #c62828 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+    }
+
+    .tagline {
+      font-size: 0.95rem;
+      color: #9b9ea3;
+      max-width: 280px;
+      line-height: 1.5;
+    }
+
+    /* ── Botão Criar Sala ── */
+    .btn-criar {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 13px 32px;
+      background: #c62828;
+      border: none; border-radius: 999px;
+      color: #fff; font-size: 1rem; font-weight: 700;
+      cursor: pointer; text-decoration: none;
+      box-shadow: 0 4px 24px rgba(198,40,40,.4);
+      transition: transform .15s, box-shadow .15s;
+      user-select: none;
+    }
+    .btn-criar:hover {
+      transform: scale(1.04);
+      box-shadow: 0 6px 32px rgba(198,40,40,.6);
+    }
+    .btn-criar:active { transform: scale(.98); }
+    .btn-criar svg {
+      width: 18px; height: 18px;
+      fill: none; stroke: #fff;
+      stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ── URL da sala (mostrada após criar) ── */
+    .url-box {
+      display: none;
+      flex-direction: column; align-items: center; gap: 10px;
+      width: 100%; max-width: 420px;
+    }
+    .url-box.visible { display: flex; }
+
+    .url-label {
+      font-size: 0.75rem; font-weight: 600;
+      letter-spacing: .06em; text-transform: uppercase;
+      color: #6b6f76;
+    }
+
+    .url-row {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%;
+      background: #18191c; border: 1px solid #2a2c30;
+      border-radius: 10px; padding: 10px 14px;
+    }
+    .url-text {
+      flex: 1; font-size: 0.82rem; color: #b5bac1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: none; border: none; outline: none;
+      font-family: 'Segoe UI', sans-serif;
+      cursor: default;
+    }
+    .btn-copy {
+      flex-shrink: 0;
+      background: #c62828; border: none; border-radius: 7px;
+      padding: 6px 14px; color: #fff; font-size: 0.78rem;
+      font-weight: 600; cursor: pointer; transition: background .15s;
+    }
+    .btn-copy:hover { background: #d32f2f; }
+    .btn-copy.copied { background: #2e7d32; }
+
+    .url-hint {
+      font-size: 0.77rem; color: #6b6f76; line-height: 1.4;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      position: fixed; bottom: 18px;
+      font-size: 0.72rem; color: #3a3c41;
+      z-index: 1; letter-spacing: .02em;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-banner"></div>
+  <div class="bg-glow"></div>
+
+  <div class="center">
+    <img class="logo" src="/foto/1321a2929b5943c3cc2be6e3722c2552.png" alt="NEXT">
+    <div class="brand">Next Cup</div>
+    <p class="tagline">Transmissões ao vivo dentro do Discord, sem sair do servidor.</p>
+
+    <button class="btn-criar" id="btnCriar">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      Criar sala
+    </button>
+
+    <div class="url-box" id="urlBox">
+      <span class="url-label">Link da sala</span>
+      <div class="url-row">
+        <input class="url-text" id="urlText" readonly>
+        <button class="btn-copy" id="btnCopy">Copiar</button>
+      </div>
+      <p class="url-hint">Envie este link para quem vai transmitir. O link expira quando a sala fechar.</p>
+    </div>
+  </div>
+
+  <p class="footer">Next Transmissões · Powered by Shard Cloud</p>
+
+  <script>
+    const btnCriar = document.getElementById('btnCriar');
+    const urlBox   = document.getElementById('urlBox');
+    const urlText  = document.getElementById('urlText');
+    const btnCopy  = document.getElementById('btnCopy');
+
+    btnCriar.addEventListener('click', async () => {
+      btnCriar.disabled = true;
+      btnCriar.textContent = 'Criando…';
+
+      try {
+        // Cria uma sala anônima (sem guild/channel — gera roomId por timestamp)
+        const res = await fetch('/api/room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Erro ao criar sala');
+
+        // Monta a URL da sala com o viewerToken
+        const url = new URL(location.href);
+        url.pathname = '/';
+        url.searchParams.set('room', data.roomId);
+        url.searchParams.set('t', data.viewerToken);
+
+        urlText.value = url.toString();
+        urlBox.classList.add('visible');
+
+        btnCriar.textContent = '+ Criar outra sala';
+        btnCriar.disabled = false;
+      } catch (e) {
+        btnCriar.textContent = 'Erro — tente novamente';
+        btnCriar.disabled = false;
+        console.error(e);
+      }
+    });
+
+    btnCopy.addEventListener('click', () => {
+      navigator.clipboard.writeText(urlText.value).then(() => {
+        btnCopy.textContent = 'Copiado!';
+        btnCopy.classList.add('copied');
+        setTimeout(() => {
+          btnCopy.textContent = 'Copiar';
+          btnCopy.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
