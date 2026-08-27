@@ -1,0 +1,14 @@
+﻿{
+  "name": "last-transmissoes",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "ws": "^8.18.0"
+  }
+}
