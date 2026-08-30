@@ -127,13 +127,8 @@ export function opcoesTela({ fps = 30, comSom = false, video } = {}) {
   };
   if (comSom) {
     opts.windowAudio = 'window';
-    // Deixa a opção de áudio aparecer também para tela inteira. A escolha
-    // continua explícita no seletor do navegador; quem não marcar a caixa
-    // recebe somente vídeo.
-    opts.systemAudio = 'include';
-    // Hint do seletor: AudioSelectionPreferenceEnum só aceita "preferred".
-    // "include" é de systemAudio/selfBrowserSurface e o Chromium rejeita a
-    // captura inteira se audioSelection vier com valor inválido.
+    // Não pedir systemAudio: captura a saída inteira do PC, inclusive o Discord,
+    // e a call entra em retorno. Som isolado = aba ou janela de app.
     opts.audioSelection = 'preferred';
   }
   return opts;
@@ -399,25 +394,37 @@ export function createBroadcaster({
     return Boolean(navigator.mediaDevices.getSupportedConstraints?.().restrictOwnAudio);
   }
 
+  const ROTULO_NAVEGADOR =
+    /\b(chrome|chromium|firefox|microsoft edge|edge|brave|opera|msedge|vivaldi|arc|safari)\b/i;
+
+  /** Janela do Chrome/Edge/Firefox etc. — o som pode misturar abas, inclusive Discord. */
+  function isJanelaDeNavegador(videoTrack) {
+    if (!videoTrack) return false;
+    if (videoTrack.getSettings?.().displaySurface === 'browser') return false;
+    return ROTULO_NAVEGADOR.test(videoTrack.label || '');
+  }
+
+  /** Janela do app Discord — traz a call inteira, voz inclusa, em loop. */
+  function isJanelaDoDiscord(videoTrack) {
+    if (!videoTrack) return false;
+    return /\bdiscord\b/i.test(videoTrack.label || '');
+  }
+
+  /** A superfície escolhida entrega som sem levar a call do Discord junto? */
+  function somIsolado(videoTrack) {
+    if (!videoTrack) return false;
+    const superficie = videoTrack.getSettings?.().displaySurface;
+    if (superficie === 'browser') return true;
+    if (superficie !== 'window' || !somDeJanelaConfiavel()) return false;
+    if (isJanelaDeNavegador(videoTrack) || isJanelaDoDiscord(videoTrack)) return false;
+    return true;
+  }
+
   /**
    * Devolve a faixa de som, ou null quando ela traria a call de volta em eco.
    *
-   * O nó: o som do sistema é capturado como uma mistura única. "Som da tela
-   * inteira" é sempre "som do sistema INTEIRO", com a saída do Discord dentro —
-   * e a call inteira se escuta, com atraso.
-   *
-   * Duas superfícies escapam disso. Aba, que sempre foi isolada por construção:
-   * o som sai só dali e o Discord nunca entra. E janela, desde que o navegador
-   * aceite escopar o som ao processo dela — é o que `windowAudio: 'window'`
-   * pede em opcoesCaptura, e é o que destrava transmitir um jogo com o som do
-   * jogo, que antes era impossível por aqui.
-   *
-   * Fora dessas duas a faixa morre aqui, antes de sair da máquina — e aí sim
-   * acende o `somBloqueado`, porque veio som e ele foi barrado.
-   *
-   * Vir sem faixa nenhuma é silêncio, não erro: o som é sempre pedido, e é a
-   * caixa "Compartilhar o áudio" do seletor que decide. Quem a deixou desmarcada
-   * escolheu transmitir sem som, e avisar disso seria acusar a escolha.
+   * Aba = som só daquela guia. Janela de app (jogo) = som só daquele processo.
+   * Janela de navegador, Discord e tela inteira = barrados — misturam a call.
    */
   function prepararSom(videoTrack, capturado) {
     if (!audio) return null;
@@ -429,19 +436,17 @@ export function createBroadcaster({
       return null;
     }
 
-    // Áudio de monitor é uma escolha explícita do usuário no diálogo nativo.
-    // Ele resolve o caso legítimo de quem quer transmitir tudo, mas pode conter
-    // Discord e notificações; por isso entra no ar acompanhado de aviso, em vez
-    // de ser descartado silenciosamente depois da autorização.
+    // Tela inteira = som do sistema inteiro, com Discord dentro. Sempre barrado:
+    // quem precisa de som de app usa janela ou aba via "Escolher áudio separado".
     if (superficie === 'monitor') {
-      somBloqueado = false;
-      onAviso?.(
-        'Áudio da tela inteira ligado. Ele inclui todos os sons do PC, inclusive o Discord; se houver eco, use "Escolher áudio separado".',
-      );
-      return faixa;
+      faixa.stop();
+      capturado.removeTrack(faixa);
+      somBloqueado = true;
+      onAviso?.(avisoSemSom(superficie, videoTrack));
+      return null;
     }
 
-    if (somIsolado(superficie)) {
+    if (somIsolado(videoTrack)) {
       somBloqueado = false;
       return faixa;
     }
@@ -450,40 +455,43 @@ export function createBroadcaster({
     capturado.removeTrack(faixa);
 
     somBloqueado = true;
-    onAviso?.(avisoSemSom(superficie));
+    onAviso?.(avisoSemSom(superficie, videoTrack));
     return null;
   }
 
-  /** A superfície escolhida entrega som sem levar o Discord junto? */
-  function somIsolado(superficie) {
-    if (superficie === 'browser') return true;
-    return superficie === 'window' && somDeJanelaConfiavel();
-  }
-
   /** Por que o som que veio foi barrado, e por onde sair disso. */
-  function avisoSemSom(superficie) {
-    const saida = ' Ou use "Escolher áudio separado" para escolher a fonte.';
+  function avisoSemSom(superficie, videoTrack) {
+    const saida =
+      ' Use "Escolher áudio separado" e selecione a aba do jogo — não a janela do navegador nem o Discord.';
 
-    // Janela só chega aqui quando o navegador não sabe escopar o som a ela.
+    if (superficie === 'window' && isJanelaDoDiscord(videoTrack)) {
+      return (
+        'A janela do Discord traria a call inteira — sua voz repetiria sem parar na transmissão.' +
+        saida
+      );
+    }
+    if (superficie === 'window' && isJanelaDeNavegador(videoTrack)) {
+      return (
+        'Janela do navegador inclui o Discord de outras abas — sua voz voltaria em eco infinito.' +
+        ' Compartilhe a aba do jogo ou a janela do aplicativo (ex.: o jogo).' +
+        saida
+      );
+    }
     if (superficie === 'window') {
       return (
-        'Este navegador não isola o som por janela, e o som do computador traria o Discord ' +
-        'junto. Transmitindo sem som.' +
+        'Este navegador não isola o som por janela, e o Discord traria sua voz de volta.' +
+        ' Transmitindo sem som.' +
         saida
       );
     }
     if (superficie === 'monitor') {
-      const comoLevar = somDeJanelaConfiavel()
-        ? ' Compartilhe o jogo como janela para levar o som dele.'
-        : '';
       return (
-        'A tela inteira carrega o som do Discord junto, e a call se ouviria em eco. ' +
-        'Transmitindo sem som.' +
-        comoLevar +
+        'A tela inteira inclui o Discord e sua voz — repetiria infinitamente na transmissão.' +
+        ' Compartilhe a aba ou a janela do jogo.' +
         saida
       );
     }
-    return 'Não deu para confirmar de onde vinha esse som, então ele foi removido.' + saida;
+    return 'Não deu para isolar esse som do Discord, então ele foi removido.' + saida;
   }
 
   /** Explica por que a captura iniciou muda e como refazer a escolha. */
@@ -520,8 +528,9 @@ export function createBroadcaster({
       opcoesCaptura({ video: true, comSom: true }),
     );
 
+    const videoTrack = escolha.getVideoTracks()[0];
     const faixa = escolha.getAudioTracks()[0];
-    const superficie = escolha.getVideoTracks()[0]?.getSettings?.().displaySurface;
+    const superficie = videoTrack?.getSettings?.().displaySurface;
 
     // O vídeo desta escolha não interessa: viemos só pelo som.
     escolha.getVideoTracks().forEach((t) => t.stop());
@@ -529,18 +538,27 @@ export function createBroadcaster({
     if (!faixa) {
       escolha.getTracks().forEach((t) => t.stop());
       throw new Error(
-        somDeJanelaConfiavel()
-          ? 'Essa escolha veio sem som. Escolha uma aba ou a janela do aplicativo e marque "Compartilhar o áudio".'
-          : 'Essa escolha veio sem som. Escolha uma aba e marque "Compartilhar o áudio da guia".',
+        'Essa escolha veio sem som. Escolha a aba do jogo e marque "Compartilhar o áudio da guia".',
       );
     }
 
-    if (!somIsolado(superficie)) {
+    if (!somIsolado(videoTrack)) {
       faixa.stop();
+      if (superficie === 'monitor') {
+        throw new Error(
+          'Tela inteira traria o Discord e sua voz repetiria sem parar. Escolha a aba do jogo.',
+        );
+      }
+      if (isJanelaDoDiscord(videoTrack)) {
+        throw new Error('Não use a janela do Discord como fonte de som — traz a call inteira. Escolha a aba do jogo.');
+      }
+      if (isJanelaDeNavegador(videoTrack)) {
+        throw new Error(
+          'Janela do navegador inclui o Discord de outras abas. Escolha a aba do jogo (Guia), não a janela.',
+        );
+      }
       throw new Error(
-        superficie === 'window'
-          ? 'Este navegador não isola o som por janela. Escolha uma aba.'
-          : 'Tela inteira traria o Discord junto e a call se ouviria. Escolha uma aba ou a janela do aplicativo.',
+        'Essa fonte traria o Discord junto. Escolha a aba do jogo ou a janela do aplicativo.',
       );
     }
 
