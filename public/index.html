@@ -620,6 +620,7 @@
     let participants = [];
     let audioMuted   = localStorage.getItem('nextMuted') === 'true';
     let isFullscreen = false;
+    let audioHintShown = false;
 
     // ── toast ──────────────────────────────────────────────────────────────
     function toast(msg, err = false) {
@@ -658,6 +659,22 @@
       try { if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'need-keyframe' })); } catch {}
     }
 
+    /** Desbloqueia o áudio após gesto do usuário (exigido no iframe da Activity). */
+    function desbloquearAudio() {
+      if (audioMuted) return;
+      for (const p of players.values()) p.wakeAudio?.();
+    }
+
+    function avisarAudioBloqueado() {
+      if (audioHintShown || audioMuted) return;
+      const precisa = [...players.values()].some(
+        (p) => p.audioConfig && p.audioCtx?.state === 'suspended',
+      );
+      if (!precisa) return;
+      audioHintShown = true;
+      toast('Clique em qualquer lugar para ativar o áudio da transmissão.');
+    }
+
     // ── StreamPlayer ───────────────────────────────────────────────────────
     class StreamPlayer {
       constructor(info) {
@@ -676,8 +693,10 @@
         this.audioDecoder = null;
         this.audioCtx     = null;
         this.nextAudioAt  = 0;
+        this.pendingAudio = [];
 
         this._buildSideItem(info);
+        if (this.audioConfig) this.ensureAudio();
       }
 
       _buildSideItem(info) {
@@ -757,7 +776,25 @@
         this.ensureDecoder();
       }
 
-      setAudioConfig(config) { this.audioConfig = config; }
+      setAudioConfig(config) {
+        const mudou = !this.audioConfig ||
+          this.audioConfig.sampleRate !== config.sampleRate ||
+          this.audioConfig.numberOfChannels !== config.numberOfChannels ||
+          this.audioConfig.codec !== config.codec;
+        this.audioConfig = config;
+        if (mudou && this.audioDecoder) {
+          try { this.audioDecoder.close(); } catch {}
+          this.audioDecoder = null;
+          this.audioCtx?.close().catch(() => {});
+          this.audioCtx = null;
+          this.nextAudioAt = 0;
+        }
+        this.ensureAudio();
+        if (!audioMuted) this.wakeAudio();
+        const fila = this.pendingAudio;
+        this.pendingAudio = [];
+        for (const buf of fila) this.pushAudio(buf);
+      }
 
       ensureDecoder() {
         if (this.decoder || !this.config || !window.VideoDecoder) return;
@@ -816,7 +853,8 @@
       }
 
       ensureAudio() {
-        if (this.audioCtx || !window.AudioDecoder || !this.audioConfig) return null;
+        if (!window.AudioDecoder || !this.audioConfig) return null;
+        if (this.audioCtx && this.audioDecoder) return this.audioCtx;
         try {
           this.audioCtx = new AudioContext({ sampleRate: this.audioConfig.sampleRate || 48000 });
           if (audioMuted) this.audioCtx.suspend().catch(() => {});
@@ -829,16 +867,31 @@
             sampleRate: this.audioConfig.sampleRate || 48000,
             numberOfChannels: this.audioConfig.numberOfChannels || 2,
           });
-        } catch { this.audioCtx = null; this.audioDecoder = null; }
+        } catch {
+          this.audioCtx = null;
+          this.audioDecoder = null;
+        }
         return this.audioCtx;
       }
 
+      wakeAudio() {
+        const ctx = this.audioCtx;
+        if (!ctx || audioMuted || ctx.state !== 'suspended') return Promise.resolve();
+        return ctx.resume().catch(() => {});
+      }
+
       pushAudio(buffer) {
-        if (!window.AudioDecoder) return;
-        const ctx = this.ensureAudio(); if (!ctx) return;
-        if (!audioMuted && ctx.state === 'suspended') ctx.resume().catch(() => {});
+        if (!window.AudioDecoder || audioMuted) return;
+        if (!this.audioConfig) {
+          if (this.pendingAudio.length < 80) this.pendingAudio.push(buffer.slice(0));
+          return;
+        }
+        const ctx = this.ensureAudio();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') avisarAudioBloqueado();
         const dv = new DataView(buffer);
-        const ts = dv.getFloat64(2), data = new Uint8Array(buffer, 18);
+        const ts = dv.getFloat64(2);
+        const data = new Uint8Array(buffer, 18);
         if (!this.audioDecoder || this.audioDecoder.state !== 'configured') return;
         try {
           this.audioDecoder.decode(new EncodedAudioChunk({
@@ -851,20 +904,32 @@
 
       play(audioData) {
         const ctx = this.audioCtx;
-        if (!ctx || ctx.state !== 'running') { audioData.close(); return; }
-        const frames = audioData.numberOfFrames;
-        const channels = Math.min(2, audioData.numberOfChannels);
-        const buf = ctx.createBuffer(channels, frames, audioData.sampleRate);
-        for (let c = 0; c < channels; c++) {
-          const plane = new Float32Array(frames);
-          audioData.copyTo(plane, { planeIndex: c, format: 'f32-planar' });
-          buf.copyToChannel(plane, c);
+        if (!ctx || audioMuted) { audioData.close(); return; }
+
+        const emitir = () => {
+          if (ctx.state !== 'running') { audioData.close(); return; }
+          const frames = audioData.numberOfFrames;
+          const channels = Math.min(2, audioData.numberOfChannels);
+          const buf = ctx.createBuffer(channels, frames, audioData.sampleRate);
+          for (let c = 0; c < channels; c++) {
+            const plane = new Float32Array(frames);
+            audioData.copyTo(plane, { planeIndex: c, format: 'f32-planar' });
+            buf.copyToChannel(plane, c);
+          }
+          audioData.close();
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          const at = Math.max(ctx.currentTime + 0.05, this.nextAudioAt);
+          src.start(at);
+          this.nextAudioAt = at + buf.duration;
+        };
+
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(emitir).catch(() => audioData.close());
+          return;
         }
-        audioData.close();
-        const src = ctx.createBufferSource();
-        src.buffer = buf; src.connect(ctx.destination);
-        const at = Math.max(ctx.currentTime + 0.05, this.nextAudioAt);
-        src.start(at); this.nextAudioAt = at + buf.duration;
+        emitir();
       }
 
       destroy() {
@@ -1084,6 +1149,7 @@
 
       updateSidebar();
       updatePeople();
+      desbloquearAudio();
     }
 
     function closeStream(slot) {
@@ -1200,23 +1266,24 @@
       for (const p of players.values()) {
         if (p.audioCtx) {
           if (audioMuted) p.audioCtx.suspend().catch(() => {});
-          else            p.audioCtx.resume().catch(() => {});
+          else p.wakeAudio?.();
         }
       }
       $('micOn').style.display  = audioMuted ? 'none' : '';
       $('micOff').style.display = audioMuted ? ''     : 'none';
       $('muteBtn').classList.toggle('muted', audioMuted);
-      $('muteBtn').title = audioMuted ? 'Desmutear' : 'Mutear';
+      $('muteBtn').title = audioMuted ? 'Desmutear áudio da transmissão' : 'Mutear áudio da transmissão';
     }
     applyMute();
     $('muteBtn').addEventListener('click', () => {
       audioMuted = !audioMuted;
       localStorage.setItem('nextMuted', audioMuted);
       applyMute();
+      if (!audioMuted) desbloquearAudio();
     });
-    document.addEventListener('click', () => {
-      if (!audioMuted) for (const p of players.values()) p.audioCtx?.resume?.().catch(() => {});
-    }, { capture: true });
+    for (const ev of ['click', 'pointerdown', 'keydown']) {
+      document.addEventListener(ev, desbloquearAudio, { capture: true });
+    }
 
     // ── qualidade ───────────────────────────────────────────────────────────
     let selectedQuality = JSON.parse(localStorage.getItem('nextQuality') || 'null') || { q: '2500000', fps: '60' };
