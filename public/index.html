@@ -622,6 +622,30 @@
     let isFullscreen = false;
     let audioHintShown = false;
 
+    // Um contexto só: vários AudioContext competindo pelo dispositivo gerava
+    // pausas e drift. latencyHint 'interactive' reduz o buffer de saída.
+    let sharedAudioCtx = null;
+    let globalGain     = null;
+    const AUDIO_TARGET_LATENCY = 0.06; // 60 ms — equilíbrio entre estabilidade e atraso
+    const AUDIO_MAX_LATENCY    = 0.18; // acima disso descarta fila e recomeça
+
+    function getSharedAudioCtx(sampleRate = 48000) {
+      if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+        sharedAudioCtx = new AudioContext({ sampleRate, latencyHint: 'interactive' });
+        globalGain = sharedAudioCtx.createGain();
+        globalGain.gain.value = audioMuted ? 0 : 1;
+        globalGain.connect(sharedAudioCtx.destination);
+      }
+      return sharedAudioCtx;
+    }
+
+    function resetAudioClocks() {
+      const ctx = sharedAudioCtx;
+      if (!ctx || ctx.state !== 'running') return;
+      const t = ctx.currentTime + AUDIO_TARGET_LATENCY;
+      for (const p of players.values()) p.nextAudioAt = t;
+    }
+
     // ── toast ──────────────────────────────────────────────────────────────
     function toast(msg, err = false) {
       const el = $('toast');
@@ -662,15 +686,16 @@
     /** Desbloqueia o áudio após gesto do usuário (exigido no iframe da Activity). */
     function desbloquearAudio() {
       if (audioMuted) return;
-      for (const p of players.values()) p.wakeAudio?.();
+      const ctx = getSharedAudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(resetAudioClocks).catch(() => {});
+      }
     }
 
     function avisarAudioBloqueado() {
       if (audioHintShown || audioMuted) return;
-      const precisa = [...players.values()].some(
-        (p) => p.audioConfig && p.audioCtx?.state === 'suspended',
-      );
-      if (!precisa) return;
+      const ctx = sharedAudioCtx;
+      if (!ctx || ctx.state !== 'suspended') return;
       audioHintShown = true;
       toast('Clique em qualquer lugar para ativar o áudio da transmissão.');
     }
@@ -785,15 +810,16 @@
         if (mudou && this.audioDecoder) {
           try { this.audioDecoder.close(); } catch {}
           this.audioDecoder = null;
-          this.audioCtx?.close().catch(() => {});
-          this.audioCtx = null;
           this.nextAudioAt = 0;
         }
         this.ensureAudio();
-        if (!audioMuted) this.wakeAudio();
+        if (!audioMuted) desbloquearAudio();
         const fila = this.pendingAudio;
         this.pendingAudio = [];
-        for (const buf of fila) this.pushAudio(buf);
+        // Descarta pacotes acumulados antes da config — eram atraso morto.
+        const recentes = fila.length > 6 ? fila.slice(-6) : fila;
+        this.resetAudioClock();
+        for (const buf of recentes) this.pushAudio(buf);
       }
 
       ensureDecoder() {
@@ -854,13 +880,17 @@
 
       ensureAudio() {
         if (!window.AudioDecoder || !this.audioConfig) return null;
-        if (this.audioCtx && this.audioDecoder) return this.audioCtx;
+        const ctx = getSharedAudioCtx(this.audioConfig.sampleRate || 48000);
+        this.audioCtx = ctx;
+        if (this.audioDecoder) return ctx;
         try {
-          this.audioCtx = new AudioContext({ sampleRate: this.audioConfig.sampleRate || 48000 });
-          if (audioMuted) this.audioCtx.suspend().catch(() => {});
           this.audioDecoder = new AudioDecoder({
             output: (ad) => this.play(ad),
-            error: () => {},
+            error: (err) => {
+              console.warn('[audio decoder]', err?.message || err);
+              try { this.audioDecoder?.close(); } catch {}
+              this.audioDecoder = null;
+            },
           });
           this.audioDecoder.configure({
             codec: this.audioConfig.codec || 'opus',
@@ -868,27 +898,41 @@
             numberOfChannels: this.audioConfig.numberOfChannels || 2,
           });
         } catch {
-          this.audioCtx = null;
           this.audioDecoder = null;
         }
-        return this.audioCtx;
+        return ctx;
       }
 
-      wakeAudio() {
-        const ctx = this.audioCtx;
-        if (!ctx || audioMuted || ctx.state !== 'suspended') return Promise.resolve();
-        return ctx.resume().catch(() => {});
+      resetAudioClock() {
+        const ctx = this.audioCtx || sharedAudioCtx;
+        if (ctx?.state === 'running') {
+          this.nextAudioAt = ctx.currentTime + AUDIO_TARGET_LATENCY;
+        } else {
+          this.nextAudioAt = 0;
+        }
       }
 
       pushAudio(buffer) {
         if (!window.AudioDecoder || audioMuted) return;
+        // Toca só a stream em foco; se ninguém está em foco, só quando há uma no ar.
+        if (focusedSlot != null) {
+          if (this.slot !== focusedSlot) return;
+        } else if (players.size > 1) {
+          return;
+        }
         if (!this.audioConfig) {
-          if (this.pendingAudio.length < 80) this.pendingAudio.push(buffer.slice(0));
+          if (this.pendingAudio.length < 40) this.pendingAudio.push(buffer.slice(0));
           return;
         }
         const ctx = this.ensureAudio();
         if (!ctx) return;
         if (ctx.state === 'suspended') avisarAudioBloqueado();
+        if (ctx.state === 'running') {
+          const lag = this.nextAudioAt - ctx.currentTime;
+          if (this.nextAudioAt && lag > AUDIO_MAX_LATENCY) this.resetAudioClock();
+        }
+        // Fila cheia = estamos atrasados; descarta pacote velho e mantém tempo real.
+        if ((this.audioDecoder?.decodeQueueSize ?? 0) > 3) return;
         const dv = new DataView(buffer);
         const ts = dv.getFloat64(2);
         const data = new Uint8Array(buffer, 18);
@@ -903,12 +947,19 @@
       }
 
       play(audioData) {
-        const ctx = this.audioCtx;
+        const ctx = this.audioCtx || getSharedAudioCtx();
         if (!ctx || audioMuted) { audioData.close(); return; }
 
         const emitir = () => {
-          if (ctx.state !== 'running') { audioData.close(); return; }
+          if (ctx.state === 'closed') { audioData.close(); return; }
+          if (ctx.state === 'suspended') {
+            ctx.resume().then(emitir).catch(() => audioData.close());
+            return;
+          }
+
           const frames = audioData.numberOfFrames;
+          if (!frames) { audioData.close(); return; }
+
           const channels = Math.min(2, audioData.numberOfChannels);
           const buf = ctx.createBuffer(channels, frames, audioData.sampleRate);
           for (let c = 0; c < channels; c++) {
@@ -917,25 +968,37 @@
             buf.copyToChannel(plane, c);
           }
           audioData.close();
+
+          const now = ctx.currentTime;
+          const lag = this.nextAudioAt - now;
+          // Sem relógio, atraso negativo ou fila grande demais: recomeça do presente.
+          if (!this.nextAudioAt || lag < 0 || lag > AUDIO_MAX_LATENCY) {
+            this.nextAudioAt = now + AUDIO_TARGET_LATENCY;
+          }
+
+          const dest = globalGain || ctx.destination;
           const src = ctx.createBufferSource();
           src.buffer = buf;
-          src.connect(ctx.destination);
-          const at = Math.max(ctx.currentTime + 0.05, this.nextAudioAt);
-          src.start(at);
-          this.nextAudioAt = at + buf.duration;
+          src.connect(dest);
+          try {
+            src.start(this.nextAudioAt);
+            this.nextAudioAt += buf.duration;
+          } catch {
+            this.nextAudioAt = now + AUDIO_TARGET_LATENCY;
+            try {
+              src.start(this.nextAudioAt);
+              this.nextAudioAt += buf.duration;
+            } catch {}
+          }
         };
 
-        if (ctx.state === 'suspended') {
-          ctx.resume().then(emitir).catch(() => audioData.close());
-          return;
-        }
         emitir();
       }
 
       destroy() {
         try { this.decoder?.close();      } catch {}
         try { this.audioDecoder?.close(); } catch {}
-        this.audioCtx?.close().catch(() => {});
+        this.audioDecoder = null;
         this.sideItem.remove();
       }
     }
@@ -1139,6 +1202,9 @@
         // "você" aparece se for a própria stream do usuário
         $('youLabel').hidden = (p.info.userId !== myUserId);
 
+        p.resetAudioClock();
+        p.pendingAudio = [];
+
         $('mainTile').hidden = false;
         $('idleView').hidden = true;
       } else {
@@ -1263,12 +1329,8 @@
 
     // ── mute ────────────────────────────────────────────────────────────────
     function applyMute() {
-      for (const p of players.values()) {
-        if (p.audioCtx) {
-          if (audioMuted) p.audioCtx.suspend().catch(() => {});
-          else p.wakeAudio?.();
-        }
-      }
+      if (globalGain) globalGain.gain.value = audioMuted ? 0 : 1;
+      if (!audioMuted) desbloquearAudio();
       $('micOn').style.display  = audioMuted ? 'none' : '';
       $('micOff').style.display = audioMuted ? ''     : 'none';
       $('muteBtn').classList.toggle('muted', audioMuted);
