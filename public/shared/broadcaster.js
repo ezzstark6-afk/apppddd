@@ -131,7 +131,10 @@ export function opcoesTela({ fps = 30, comSom = false, video } = {}) {
     // continua explícita no seletor do navegador; quem não marcar a caixa
     // recebe somente vídeo.
     opts.systemAudio = 'include';
-    opts.audioSelection = 'include';
+    // Hint do seletor: AudioSelectionPreferenceEnum só aceita "preferred".
+    // "include" é de systemAudio/selfBrowserSurface e o Chromium rejeita a
+    // captura inteira se audioSelection vier com valor inválido.
+    opts.audioSelection = 'preferred';
   }
   return opts;
 }
