@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Página de captura externa.
  *
  * Só existe como alternativa: quando o Discord não concede `display-capture` ao
@@ -18,7 +18,7 @@ import {
   supportError,
   fonteIndisponivel,
   opcoesTela,
-} from '/shared/broadcaster.js?v=10';
+} from '/shared/broadcaster.js?v=12';
 
 const $ = (id) => document.getElementById(id);
 
